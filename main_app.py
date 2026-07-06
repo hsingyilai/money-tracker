@@ -1,4 +1,11 @@
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QDateEdit, QLabel
+from PyQt6.QtWidgets import (
+    QApplication,
+    QWidget,
+    QPushButton,
+    QDateEdit,
+    QLabel,
+    QCheckBox,
+)
 from PyQt6 import QtWidgets
 import sys
 from datetime import datetime
@@ -15,6 +22,14 @@ class InputWindow(QWidget):
         self.initUI()
 
     def initUI(self):
+        self.init_label_input()
+        self.init_button_categories()
+        self.init_button_summary()
+        self.init_select_date()
+        self.init_button_submit()
+        self.init_expense_income_switch()
+
+    def init_label_input(self):
         self.label_input = QLabel("Input", self)
         self.label_input.setGeometry(40, 590, 110, 70)
         self.label_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -22,18 +37,27 @@ class InputWindow(QWidget):
             "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
         )
 
+    def init_button_categories(self):
         self.button_categories = QPushButton("Categories", self)
-        self.button_categories.setGeometry(160, 590, 110, 70)
+        self.button_categories.setGeometry(150, 600, 110, 60)
         self.button_categories.setStyleSheet("font-size: 18px;")
 
         self.button_categories.clicked.connect(self.go_to_categories)
 
+    def init_button_summary(self):
         self.button_summary = QPushButton("Summary", self)
-        self.button_summary.setGeometry(280, 590, 110, 70)
+        self.button_summary.setGeometry(260, 600, 110, 60)
         self.button_summary.setStyleSheet("font-size: 18px;")
 
         self.button_summary.clicked.connect(self.go_to_summary)
 
+    def go_to_categories(self):
+        widget.setCurrentIndex(1)
+
+    def go_to_summary(self):
+        widget.setCurrentIndex(2)
+
+    def init_select_date(self):
         self.calender = QDateEdit(self)
         self.calender.setGeometry(90, 200, 200, 40)
         self.calender.setDate(qtoday)
@@ -43,6 +67,7 @@ class InputWindow(QWidget):
         self.label_date.setGeometry(40, 200, 50, 40)
         self.label_date.setStyleSheet("font-size: 20px;")
 
+    def init_button_submit(self):
         self.button_submit = QPushButton("Submit", self)
         self.button_submit.setGeometry(40, 510, 230, 45)
         self.button_submit.setStyleSheet("""
@@ -60,11 +85,65 @@ class InputWindow(QWidget):
                                         }
                                     """)
 
-    def go_to_categories(self):
-        widget.setCurrentIndex(1)
+    def init_expense_income_switch(self):
+        self.label_switch_income = QLabel("Income", self)
+        self.label_switch_income.setGeometry(40, 60, 150, 40)
+        self.label_switch_income.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_switch_income.setStyleSheet(
+            "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
+        )
 
-    def go_to_summary(self):
-        widget.setCurrentIndex(2)
+        self.label_switch_expense = QLabel("Expense", self)
+        self.label_switch_expense.setGeometry(190, 60, 90, 30)
+        self.label_switch_expense.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_switch_expense.setStyleSheet(
+            "background-color: #ecffe6;font-size: 16px;"
+        )
+
+        self.switch = QCheckBox("", self)
+        self.switch.setGeometry(190, 60, 90, 30)
+        self.switch.setStyleSheet("""
+                                  QCheckBox::indicator{
+                                  width: 90px;
+                                  height: 30px;
+                                  }
+                                  QCheckBox::indicator:checked {
+                                  image: none;
+                                background-color: none;
+                                border: none;
+                                }
+                                QCheckBox::indicator:unchecked {
+                                    background-color: none;
+                                    border: none;
+                                }
+                                """)
+
+        self.switch.stateChanged.connect(self.switch_change)
+
+    def switch_change(self, state):
+        if Qt.CheckState(state) == Qt.CheckState.Checked:
+            self.switch.setGeometry(40, 60, 90, 30)
+            self.label_switch_income.setStyleSheet(
+                "background-color: #ecffe6;font-size: 16px;"
+            )
+            self.label_switch_income.setGeometry(40, 60, 90, 30)
+
+            self.label_switch_expense.setStyleSheet(
+                "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
+            )
+            self.label_switch_expense.setGeometry(130, 60, 150, 40)
+
+        else:
+            self.switch.setGeometry(190, 60, 90, 30)
+            self.label_switch_income.setStyleSheet(
+                "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
+            )
+            self.label_switch_income.setGeometry(40, 60, 150, 40)
+
+            self.label_switch_expense.setStyleSheet(
+                "background-color: #ecffe6;font-size: 16px;"
+            )
+            self.label_switch_expense.setGeometry(190, 60, 90, 30)
 
 
 class CategoriesWindow(QWidget):
@@ -74,21 +153,28 @@ class CategoriesWindow(QWidget):
         self.initUI()
 
     def initUI(self):
+        self.init_button_input()
+        self.init_label_categories()
+        self.init_button_summary()
+
+    def init_button_input(self):
         self.button_input = QPushButton("Input", self)
-        self.button_input.setGeometry(40, 590, 110, 70)
+        self.button_input.setGeometry(40, 600, 110, 60)
         self.button_input.setStyleSheet("font-size: 18px;")
 
         self.button_input.clicked.connect(self.go_to_input)
 
+    def init_label_categories(self):
         self.label_categories = QLabel("Categories", self)
-        self.label_categories.setGeometry(160, 590, 110, 70)
+        self.label_categories.setGeometry(150, 590, 110, 70)
         self.label_categories.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_categories.setStyleSheet(
             "background-color: #41e8a0;font-weight: bold;font-size: 18px"
         )
 
+    def init_button_summary(self):
         self.button_summary = QPushButton("Summary", self)
-        self.button_summary.setGeometry(280, 590, 110, 70)
+        self.button_summary.setGeometry(260, 600, 110, 60)
         self.button_summary.setStyleSheet("font-size: 18px;")
 
         self.button_summary.clicked.connect(self.go_to_summary)
@@ -107,24 +193,31 @@ class SummaryWindow(QWidget):
         self.initUI()
 
     def initUI(self):
+        self.init_button_input()
+        self.init_button_categories()
+        self.init_label_summary()
+
+    def init_button_input(self):
         self.button_input = QPushButton("Input", self)
-        self.button_input.setGeometry(40, 590, 110, 70)
+        self.button_input.setGeometry(40, 600, 110, 60)
         self.button_input.setStyleSheet("font-size: 18px;")
 
         self.button_input.clicked.connect(self.go_to_input)
 
+    def init_button_categories(self):
+        self.button_categories = QPushButton("Categories", self)
+        self.button_categories.setGeometry(150, 600, 110, 60)
+        self.button_categories.setStyleSheet("font-size: 18px;")
+
+        self.button_categories.clicked.connect(self.go_to_categories)
+
+    def init_label_summary(self):
         self.label_summary = QLabel("Summary", self)
-        self.label_summary.setGeometry(280, 590, 110, 70)
+        self.label_summary.setGeometry(260, 590, 110, 70)
         self.label_summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_summary.setStyleSheet(
             "background-color: #41e8a0;font-weight: bold;font-size: 18px"
         )
-
-        self.button_categories = QPushButton("Categories", self)
-        self.button_categories.setGeometry(160, 590, 110, 70)
-        self.button_categories.setStyleSheet("font-size: 18px;")
-
-        self.button_categories.clicked.connect(self.go_to_categories)
 
     def go_to_input(self):
         widget.setCurrentIndex(0)
