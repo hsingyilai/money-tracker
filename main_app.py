@@ -5,6 +5,8 @@ from PyQt6.QtWidgets import (
     QDateEdit,
     QLabel,
     QCheckBox,
+    QListWidget,
+    QListWidgetItem,
 )
 from PyQt6 import QtWidgets
 import sys
@@ -27,7 +29,10 @@ class InputWindow(QWidget):
         self.init_button_summary()
         self.init_select_date()
         self.init_button_submit()
+        self.switch_x = 40
+        self.switch_y = 30
         self.init_expense_income_switch()
+        self.init_list()
 
     def init_label_input(self):
         self.label_input = QLabel("Input", self)
@@ -59,17 +64,26 @@ class InputWindow(QWidget):
 
     def init_select_date(self):
         self.calender = QDateEdit(self)
-        self.calender.setGeometry(90, 200, 200, 40)
+        self.calender.setGeometry(90, 80, 200, 40)
         self.calender.setDate(qtoday)
         self.calender.setStyleSheet("font-size: 20px;")
 
         self.label_date = QLabel("Date:", self)
-        self.label_date.setGeometry(40, 200, 50, 40)
+        self.label_date.setGeometry(40, 80, 50, 40)
         self.label_date.setStyleSheet("font-size: 20px;")
+
+        self.button_today = QPushButton("Today", self)
+        self.button_today.setGeometry(295, 80, 70, 40)
+        self.button_today.setStyleSheet("font-size: 16px;")
+
+        self.button_today.clicked.connect(self.set_today)
+
+    def set_today(self):
+        self.calender.setDate(qtoday)
 
     def init_button_submit(self):
         self.button_submit = QPushButton("Submit", self)
-        self.button_submit.setGeometry(40, 510, 230, 45)
+        self.button_submit.setGeometry(40, 530, 325, 45)
         self.button_submit.setStyleSheet("""
                                         QPushButton {
                                             font-size: 20px;
@@ -85,23 +99,28 @@ class InputWindow(QWidget):
                                         }
                                     """)
 
+        self.button_submit.clicked.connect(self.submit_entry)
+
+    def submit_entry(self):
+        self.list.insertItem(0, QListWidgetItem(self.calender.date().toString()))
+
     def init_expense_income_switch(self):
-        self.label_switch_income = QLabel("Income", self)
-        self.label_switch_income.setGeometry(40, 60, 150, 40)
-        self.label_switch_income.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_switch_income.setStyleSheet(
+        self.label_switch_expense = QLabel("Expense", self)
+        self.label_switch_expense.setGeometry(self.switch_x, self.switch_y, 230, 40)
+        self.label_switch_expense.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_switch_expense.setStyleSheet(
             "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
         )
 
-        self.label_switch_expense = QLabel("Expense", self)
-        self.label_switch_expense.setGeometry(190, 60, 90, 30)
-        self.label_switch_expense.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_switch_expense.setStyleSheet(
+        self.label_switch_income = QLabel("Income", self)
+        self.label_switch_income.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
+        self.label_switch_income.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_switch_income.setStyleSheet(
             "background-color: #ecffe6;font-size: 16px;"
         )
 
         self.switch = QCheckBox("", self)
-        self.switch.setGeometry(190, 60, 90, 30)
+        self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
         self.switch.setStyleSheet("""
                                   QCheckBox::indicator{
                                   width: 90px;
@@ -122,28 +141,36 @@ class InputWindow(QWidget):
 
     def switch_change(self, state):
         if Qt.CheckState(state) == Qt.CheckState.Checked:
-            self.switch.setGeometry(40, 60, 90, 30)
-            self.label_switch_income.setStyleSheet(
+            self.switch.setGeometry(self.switch_x, self.switch_y, 95, 30)
+            self.label_switch_expense.setStyleSheet(
                 "background-color: #ecffe6;font-size: 16px;"
             )
-            self.label_switch_income.setGeometry(40, 60, 90, 30)
+            self.label_switch_expense.setGeometry(self.switch_x, self.switch_y, 95, 30)
 
-            self.label_switch_expense.setStyleSheet(
+            self.label_switch_income.setStyleSheet(
                 "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
             )
-            self.label_switch_expense.setGeometry(130, 60, 150, 40)
+            self.label_switch_income.setGeometry(
+                self.switch_x + 95, self.switch_y, 230, 40
+            )
 
         else:
-            self.switch.setGeometry(190, 60, 90, 30)
-            self.label_switch_income.setStyleSheet(
+            self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
+            self.label_switch_expense.setStyleSheet(
                 "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
             )
-            self.label_switch_income.setGeometry(40, 60, 150, 40)
+            self.label_switch_expense.setGeometry(self.switch_x, self.switch_y, 230, 40)
 
-            self.label_switch_expense.setStyleSheet(
+            self.label_switch_income.setStyleSheet(
                 "background-color: #ecffe6;font-size: 16px;"
             )
-            self.label_switch_expense.setGeometry(190, 60, 90, 30)
+            self.label_switch_income.setGeometry(
+                self.switch_x + 230, self.switch_y, 95, 30
+            )
+
+    def init_list(self):
+        self.list = QListWidget(self)
+        self.list.setGeometry(380, 30, 325, 545)
 
 
 class CategoriesWindow(QWidget):
@@ -235,7 +262,7 @@ window_summary = SummaryWindow()
 widget.addWidget(window_input)
 widget.addWidget(window_categories)
 widget.addWidget(window_summary)
-widget.setGeometry(600, 200, 800, 700)
+widget.setGeometry(600, 200, 740, 700)
 
 widget.setWindowTitle("Money Tracker")
 
