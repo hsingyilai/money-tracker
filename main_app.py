@@ -84,7 +84,8 @@ class InputWindow(QWidget):
     def init_button_submit(self):
         self.button_submit = QPushButton("Submit", self)
         self.button_submit.setGeometry(40, 530, 325, 45)
-        self.button_submit.setStyleSheet("""
+        self.button_submit.setStyleSheet(
+            """
                                         QPushButton {
                                             font-size: 20px;
                                             background-color: #ecffe6;
@@ -97,7 +98,8 @@ class InputWindow(QWidget):
                                         QPushButton:pressed {
                                             background-color: #0b4d0a;
                                         }
-                                    """)
+                                    """
+        )
 
         self.button_submit.clicked.connect(self.submit_entry)
 
@@ -121,7 +123,8 @@ class InputWindow(QWidget):
 
         self.switch = QCheckBox("", self)
         self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
-        self.switch.setStyleSheet("""
+        self.switch.setStyleSheet(
+            """
                                   QCheckBox::indicator{
                                   width: 90px;
                                   height: 30px;
@@ -135,7 +138,8 @@ class InputWindow(QWidget):
                                     background-color: none;
                                     border: none;
                                 }
-                                """)
+                                """
+        )
 
         self.switch.stateChanged.connect(self.switch_change)
 
