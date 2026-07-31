@@ -142,7 +142,7 @@ class InputWindow(QWidget):
         self.button_submit.clicked.connect(self.submit_entry)
 
     def submit_entry(self):
-        entry = self.calender.date().toString()
+        entry = self.calender.date().toString() + "\nanother line"
         list_add(entry, expense_list, income_list, self, self.expense_mode)
 
     def init_expense_income_switch(self):
