@@ -17,9 +17,12 @@ from PyQt6.QtCore import QDate, Qt
 # define a QDate object for today
 qtoday = QDate(datetime.now().year, datetime.now().month, datetime.now().day)
 
-# load the list data
-with open("entry_list.json", "r") as f:
-    entries = json.load(f)
+# load the list datas
+with open("my_expenses.json", "r") as f:
+    expense_list = json.load(f)
+
+with open("my_incomes.json", "r") as f:
+    income_list = json.load(f)
 
 
 class MainWidget(QtWidgets.QStackedWidget):
@@ -41,8 +44,11 @@ class MainWidget(QtWidgets.QStackedWidget):
         self.setWindowTitle("Money Tracker")
 
     def closeEvent(self, event):
-        with open("entry_list.json", "w") as f:
-            json.dump(entries, f, indent=4)
+        with open("my_expenses.json", "w") as f:
+            json.dump(expense_list, f, indent=4)
+
+        with open("my_incomes.json", "w") as f:
+            json.dump(income_list, f, indent=4)
 
         event.accept()
         super().closeEvent(event)
@@ -53,6 +59,7 @@ class InputWindow(QWidget):
         super().__init__()
 
         self.initUI()
+        self.expense_mode = True
 
     def initUI(self):
         self.init_label_input()
@@ -136,8 +143,7 @@ class InputWindow(QWidget):
 
     def submit_entry(self):
         entry = self.calender.date().toString()
-        self.list.insertItem(0, QListWidgetItem(entry))
-        entries.insert(0, entry)
+        list_add(entry, expense_list, income_list, self, self.expense_mode)
 
     def init_expense_income_switch(self):
         self.label_switch_expense = QLabel("Expense", self)
@@ -177,7 +183,7 @@ class InputWindow(QWidget):
         self.switch.stateChanged.connect(self.switch_change)
 
     def switch_change(self, state):
-        if Qt.CheckState(state) == Qt.CheckState.Checked:
+        if Qt.CheckState(state) == Qt.CheckState.Checked:  # Income mode.
             self.switch.setGeometry(self.switch_x, self.switch_y, 95, 30)
             self.label_switch_expense.setStyleSheet(
                 "background-color: #ecffe6;font-size: 16px;"
@@ -190,8 +196,10 @@ class InputWindow(QWidget):
             self.label_switch_income.setGeometry(
                 self.switch_x + 95, self.switch_y, 230, 40
             )
-
-        else:
+            self.list.clear()
+            self.list.addItems(income_list)
+            self.expense_mode = False
+        else:  # Expense mode.
             self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
             self.label_switch_expense.setStyleSheet(
                 "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
@@ -204,11 +212,25 @@ class InputWindow(QWidget):
             self.label_switch_income.setGeometry(
                 self.switch_x + 230, self.switch_y, 95, 30
             )
+            self.list.clear()
+            self.list.addItems(expense_list)
+            self.expense_mode = True
 
     def init_list(self):
         self.list = QListWidget(self)
         self.list.setGeometry(380, 30, 325, 545)
-        self.list.addItems(entries)
+        self.list.addItems(expense_list)
+
+
+# wrap list editing into a single function to prevent mistake
+def list_add(
+    entry, expense_list, income_list, inputwindow: InputWindow, expense_mode: bool
+):
+    inputwindow.list.insertItem(0, QListWidgetItem(entry))
+    if expense_mode:
+        expense_list.insert(0, entry)
+    else:
+        income_list.insert(0, entry)
 
 
 class CategoriesWindow(QWidget):
