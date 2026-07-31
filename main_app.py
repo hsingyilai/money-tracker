@@ -10,11 +10,42 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6 import QtWidgets
 import sys
+import json
 from datetime import datetime
 from PyQt6.QtCore import QDate, Qt
 
 # define a QDate object for today
 qtoday = QDate(datetime.now().year, datetime.now().month, datetime.now().day)
+
+# load the list data
+with open("entry_list.json", "r") as f:
+    entries = json.load(f)
+
+
+class MainWidget(QtWidgets.QStackedWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        window_input = InputWindow()
+        window_categories = CategoriesWindow()
+        window_summary = SummaryWindow()
+
+        self.addWidget(window_input)
+        self.addWidget(window_categories)
+        self.addWidget(window_summary)
+        self.setGeometry(600, 200, 740, 700)
+
+        self.setWindowTitle("Money Tracker")
+
+    def closeEvent(self, event):
+        with open("entry_list.json", "w") as f:
+            json.dump(entries, f, indent=4)
+
+        event.accept()
+        super().closeEvent(event)
 
 
 class InputWindow(QWidget):
@@ -104,7 +135,9 @@ class InputWindow(QWidget):
         self.button_submit.clicked.connect(self.submit_entry)
 
     def submit_entry(self):
-        self.list.insertItem(0, QListWidgetItem(self.calender.date().toString()))
+        entry = self.calender.date().toString()
+        self.list.insertItem(0, QListWidgetItem(entry))
+        entries.insert(0, entry)
 
     def init_expense_income_switch(self):
         self.label_switch_expense = QLabel("Expense", self)
@@ -175,6 +208,7 @@ class InputWindow(QWidget):
     def init_list(self):
         self.list = QListWidget(self)
         self.list.setGeometry(380, 30, 325, 545)
+        self.list.addItems(entries)
 
 
 class CategoriesWindow(QWidget):
@@ -258,18 +292,7 @@ class SummaryWindow(QWidget):
 
 
 app = QApplication(sys.argv)
-widget = QtWidgets.QStackedWidget()
-window_input = InputWindow()
-window_categories = CategoriesWindow()
-window_summary = SummaryWindow()
-
-widget.addWidget(window_input)
-widget.addWidget(window_categories)
-widget.addWidget(window_summary)
-widget.setGeometry(600, 200, 740, 700)
-
-widget.setWindowTitle("Money Tracker")
-
+widget = MainWidget()
 
 widget.show()
 sys.exit(app.exec())
