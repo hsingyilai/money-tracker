@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QListWidgetItem,
     QTreeWidget,
     QTreeWidgetItem,
+    QLineEdit,
 )
 from PyQt6 import QtWidgets
 import sys
@@ -76,6 +77,7 @@ class InputWindow(QWidget):
         self.init_expense_income_switch()
         self.init_list()
         self.init_category_tree()
+        self.init_add_subcategory()
 
     def init_label_input(self):
         self.label_input = QLabel("Input", self)
@@ -237,7 +239,25 @@ class InputWindow(QWidget):
         self.a.setExpanded(True)
         self.b = QTreeWidgetItem(self.a, ["b"])
         self.c = QTreeWidgetItem(self.a, ["c"])
-        self.c = QTreeWidgetItem(self.b, ["d"])
+        self.d = QTreeWidgetItem(self.b, ["d"])
+
+    def init_add_subcategory(self):
+        self.new_category = QLineEdit(self)
+        self.new_category.setGeometry(self.switch_x, self.switch_y + 410, 200, 30)
+        self.new_category.setPlaceholderText("new subcategory")
+        self.add_category = QPushButton("Add", self)
+        self.add_category.setEnabled(False)
+        self.add_category.setGeometry(self.switch_x + 210, self.switch_y + 405, 114, 40)
+
+        self.new_category.textChanged.connect(self.entering_category)
+        self.add_category.clicked.connect(self.add_new_category)
+
+    def entering_category(self):
+        self.add_category.setEnabled(True)
+
+    def add_new_category(self):
+        self.new_category.clear()
+        self.add_category.setEnabled(False)
 
 
 # wrap list editing into a single function to prevent mistake
