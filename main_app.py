@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QListWidget,
     QListWidgetItem,
+    QTreeWidget,
+    QTreeWidgetItem,
 )
 from PyQt6 import QtWidgets
 import sys
@@ -40,6 +42,8 @@ class MainWidget(QtWidgets.QStackedWidget):
         self.addWidget(window_categories)
         self.addWidget(window_summary)
         self.setGeometry(600, 200, 740, 700)
+        self.setFixedHeight(700)
+        self.setFixedWidth(740)
 
         self.setWindowTitle("Money Tracker")
 
@@ -71,6 +75,7 @@ class InputWindow(QWidget):
         self.switch_y = 30
         self.init_expense_income_switch()
         self.init_list()
+        self.init_category_tree()
 
     def init_label_input(self):
         self.label_input = QLabel("Input", self)
@@ -142,7 +147,7 @@ class InputWindow(QWidget):
         self.button_submit.clicked.connect(self.submit_entry)
 
     def submit_entry(self):
-        entry = self.calender.date().toString() + "\nanother line"
+        entry = self.calender.date().toString() + "\n" + self.tree.currentItem().text(0)
         list_add(entry, expense_list, income_list, self, self.expense_mode)
 
     def init_expense_income_switch(self):
@@ -220,6 +225,19 @@ class InputWindow(QWidget):
         self.list = QListWidget(self)
         self.list.setGeometry(380, 30, 325, 545)
         self.list.addItems(expense_list)
+
+    def init_category_tree(self):
+        self.tree = QTreeWidget(self)
+        self.tree.setColumnCount(1)
+        self.tree.setGeometry(self.switch_x, self.switch_y + 105, 324, 300)
+        self.tree.setHeaderHidden(True)
+        self.a = QTreeWidgetItem(["a"])
+        self.tree.addTopLevelItem(self.a)
+        self.tree.setCurrentItem(self.a)
+        self.a.setExpanded(True)
+        self.b = QTreeWidgetItem(self.a, ["b"])
+        self.c = QTreeWidgetItem(self.a, ["c"])
+        self.c = QTreeWidgetItem(self.b, ["d"])
 
 
 # wrap list editing into a single function to prevent mistake
