@@ -88,3 +88,8 @@ target/
 
 # Virtual environment
 .venv/
+
+
+# Personal expense data
+my_expenses.json
+my_incomes.json
