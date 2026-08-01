@@ -89,7 +89,9 @@ target/
 # Virtual environment
 .venv/
 
-
-# Personal expense data
+# files that store personal expenses
 my_expenses.json
 my_incomes.json
+expense_categories.json
+income_categories.json
+

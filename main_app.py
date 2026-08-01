@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
 from PyQt6 import QtWidgets
 import sys
 import json
+from anytree.importer import JsonImporter
+from anytree import LevelOrderIter
 from datetime import datetime
 from PyQt6.QtCore import QDate, Qt
 
@@ -26,6 +28,11 @@ with open("my_expenses.json", "r") as f:
 
 with open("my_incomes.json", "r") as f:
     income_list = json.load(f)
+
+# load the categories
+importer = JsonImporter()
+with open("expense_categories.json", "r") as f:
+    expense_type = importer.read(f)
 
 
 class MainWidget(QtWidgets.QStackedWidget):
@@ -229,17 +236,26 @@ class InputWindow(QWidget):
         self.list.addItems(expense_list)
 
     def init_category_tree(self):
+        self.expense_type_pointer = []
+        i = 0
+        for category in LevelOrderIter(expense_type):
+            self.expense_type_pointer.append(QTreeWidgetItem([category.name]))
+            category.index = i
+            i += 1
+
+        for category in LevelOrderIter(expense_type):
+            for child_category in category.children:
+                self.expense_type_pointer[category.index].addChild(
+                    self.expense_type_pointer[child_category.index]
+                )
+
         self.tree = QTreeWidget(self)
         self.tree.setColumnCount(1)
         self.tree.setGeometry(self.switch_x, self.switch_y + 105, 324, 300)
         self.tree.setHeaderHidden(True)
-        self.a = QTreeWidgetItem(["a"])
-        self.tree.addTopLevelItem(self.a)
-        self.tree.setCurrentItem(self.a)
-        self.a.setExpanded(True)
-        self.b = QTreeWidgetItem(self.a, ["b"])
-        self.c = QTreeWidgetItem(self.a, ["c"])
-        self.d = QTreeWidgetItem(self.b, ["d"])
+        self.tree.addTopLevelItem(self.expense_type_pointer[0])
+        self.tree.setCurrentItem(self.expense_type_pointer[0])
+        self.expense_type_pointer[0].setExpanded(True)
 
     def init_add_subcategory(self):
         self.new_category = QLineEdit(self)
