@@ -34,6 +34,9 @@ importer = JsonImporter()
 with open("expense_categories.json", "r") as f:
     expense_type = importer.read(f)
 
+with open("income_categories.json", "r") as f:
+    income_type = importer.read(f)
+
 
 class MainWidget(QtWidgets.QStackedWidget):
     def __init__(self):
@@ -156,8 +159,7 @@ class InputWindow(QWidget):
         self.button_submit.clicked.connect(self.submit_entry)
 
     def submit_entry(self):
-        entry = self.calender.date().toString() + "\n" + self.tree.currentItem().text(0)
-        list_add(entry, expense_list, income_list, self, self.expense_mode)
+        list_add(expense_list, income_list, self)
 
     def init_expense_income_switch(self):
         self.label_switch_expense = QLabel("Expense", self)
@@ -213,6 +215,8 @@ class InputWindow(QWidget):
             self.list.clear()
             self.list.addItems(income_list)
             self.expense_mode = False
+            self.income_tree.setVisible(True)
+            self.expense_tree.setVisible(False)
         else:  # Expense mode.
             self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
             self.label_switch_expense.setStyleSheet(
@@ -229,6 +233,8 @@ class InputWindow(QWidget):
             self.list.clear()
             self.list.addItems(expense_list)
             self.expense_mode = True
+            self.income_tree.setVisible(False)
+            self.expense_tree.setVisible(True)
 
     def init_list(self):
         self.list = QListWidget(self)
@@ -236,7 +242,7 @@ class InputWindow(QWidget):
         self.list.addItems(expense_list)
 
     def init_category_tree(self):
-        self.expense_type_pointer = []
+        self.expense_type_pointer = []  # Load expense categories.
         i = 0
         for category in LevelOrderIter(expense_type):
             self.expense_type_pointer.append(QTreeWidgetItem([category.name]))
@@ -249,13 +255,35 @@ class InputWindow(QWidget):
                     self.expense_type_pointer[child_category.index]
                 )
 
-        self.tree = QTreeWidget(self)
-        self.tree.setColumnCount(1)
-        self.tree.setGeometry(self.switch_x, self.switch_y + 105, 324, 300)
-        self.tree.setHeaderHidden(True)
-        self.tree.addTopLevelItem(self.expense_type_pointer[0])
-        self.tree.setCurrentItem(self.expense_type_pointer[0])
+        self.expense_tree = QTreeWidget(self)
+        self.expense_tree.setColumnCount(1)
+        self.expense_tree.setGeometry(self.switch_x, self.switch_y + 105, 324, 300)
+        self.expense_tree.setHeaderHidden(True)
+        self.expense_tree.addTopLevelItem(self.expense_type_pointer[0])
+        self.expense_tree.setCurrentItem(self.expense_type_pointer[0])
         self.expense_type_pointer[0].setExpanded(True)
+
+        self.income_type_pointer = []  # Load income categories.
+        i = 0
+        for category in LevelOrderIter(income_type):
+            self.income_type_pointer.append(QTreeWidgetItem([category.name]))
+            category.index = i
+            i += 1
+
+        for category in LevelOrderIter(income_type):
+            for child_category in category.children:
+                self.income_type_pointer[category.index].addChild(
+                    self.income_type_pointer[child_category.index]
+                )
+
+        self.income_tree = QTreeWidget(self)
+        self.income_tree.setColumnCount(1)
+        self.income_tree.setGeometry(self.switch_x, self.switch_y + 105, 324, 300)
+        self.income_tree.setHeaderHidden(True)
+        self.income_tree.addTopLevelItem(self.income_type_pointer[0])
+        self.income_tree.setCurrentItem(self.income_type_pointer[0])
+        self.income_type_pointer[0].setExpanded(True)
+        self.income_tree.setVisible(False)
 
     def init_add_subcategory(self):
         self.new_category = QLineEdit(self)
@@ -277,14 +305,16 @@ class InputWindow(QWidget):
 
 
 # wrap list editing into a single function to prevent mistake
-def list_add(
-    entry, expense_list, income_list, inputwindow: InputWindow, expense_mode: bool
-):
-    inputwindow.list.insertItem(0, QListWidgetItem(entry))
-    if expense_mode:
+def list_add(expense_list, income_list, inputwindow: InputWindow):
+    entry = inputwindow.calender.date().toString() + "\n"
+    if inputwindow.expense_mode:
+        entry += inputwindow.expense_tree.currentItem().text(0)
         expense_list.insert(0, entry)
     else:
+        entry += inputwindow.income_tree.currentItem().text(0)
         income_list.insert(0, entry)
+
+    inputwindow.list.insertItem(0, QListWidgetItem(entry))
 
 
 class CategoriesWindow(QWidget):
