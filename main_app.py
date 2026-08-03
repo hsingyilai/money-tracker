@@ -77,89 +77,19 @@ class InputWindow(QWidget):
         self.expense_mode = True
 
     def initUI(self):
-        self.init_label_input()
-        self.init_button_categories()
-        self.init_button_summary()
-        self.init_select_date()
-        self.init_button_submit()
         self.switch_x = 40
         self.switch_y = 30
         self.init_expense_income_switch()
-        self.init_list()
+        self.init_select_date()
+        self.init_amount()
+        self.init_irregular()
         self.init_category_tree()
         self.init_add_subcategory()
-
-    def init_label_input(self):
-        self.label_input = QLabel("Input", self)
-        self.label_input.setGeometry(40, 590, 110, 70)
-        self.label_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_input.setStyleSheet(
-            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
-        )
-
-    def init_button_categories(self):
-        self.button_categories = QPushButton("Categories", self)
-        self.button_categories.setGeometry(150, 600, 110, 60)
-        self.button_categories.setStyleSheet("font-size: 18px;")
-
-        self.button_categories.clicked.connect(self.go_to_categories)
-
-    def init_button_summary(self):
-        self.button_summary = QPushButton("Summary", self)
-        self.button_summary.setGeometry(260, 600, 110, 60)
-        self.button_summary.setStyleSheet("font-size: 18px;")
-
-        self.button_summary.clicked.connect(self.go_to_summary)
-
-    def go_to_categories(self):
-        widget.setCurrentIndex(1)
-
-    def go_to_summary(self):
-        widget.setCurrentIndex(2)
-
-    def init_select_date(self):
-        self.calender = QDateEdit(self)
-        self.calender.setGeometry(90, 80, 200, 40)
-        self.calender.setDate(qtoday)
-        self.calender.setStyleSheet("font-size: 20px;")
-
-        self.label_date = QLabel("Date:", self)
-        self.label_date.setGeometry(40, 80, 50, 40)
-        self.label_date.setStyleSheet("font-size: 20px;")
-
-        self.button_today = QPushButton("Today", self)
-        self.button_today.setGeometry(295, 80, 70, 40)
-        self.button_today.setStyleSheet("font-size: 16px;")
-
-        self.button_today.clicked.connect(self.set_today)
-
-    def set_today(self):
-        self.calender.setDate(qtoday)
-
-    def init_button_submit(self):
-        self.button_submit = QPushButton("Submit", self)
-        self.button_submit.setGeometry(40, 530, 325, 45)
-        self.button_submit.setStyleSheet(
-            """
-                                        QPushButton {
-                                            font-size: 20px;
-                                            background-color: #ecffe6;
-                                            border: 2px solid #0e4708;
-                                            border-radius: 10px;
-                                        }
-                                        QPushButton:hover {
-                                            background-color: #bffabe;
-                                        }
-                                        QPushButton:pressed {
-                                            background-color: #0b4d0a;
-                                        }
-                                    """
-        )
-
-        self.button_submit.clicked.connect(self.submit_entry)
-
-    def submit_entry(self):
-        list_add(expense_list, income_list, self)
+        self.init_button_submit()
+        self.init_list()
+        self.init_label_input()
+        self.init_button_categories()
+        self.init_button_summary()
 
     def init_expense_income_switch(self):
         self.label_switch_expense = QLabel("Expense", self)
@@ -217,6 +147,7 @@ class InputWindow(QWidget):
             self.expense_mode = False
             self.income_tree.setVisible(True)
             self.expense_tree.setVisible(False)
+            self.label_amount.setText("Income:    $")
         else:  # Expense mode.
             self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
             self.label_switch_expense.setStyleSheet(
@@ -235,11 +166,41 @@ class InputWindow(QWidget):
             self.expense_mode = True
             self.income_tree.setVisible(False)
             self.expense_tree.setVisible(True)
+            self.label_amount.setText("Expense: $")
 
-    def init_list(self):
-        self.list = QListWidget(self)
-        self.list.setGeometry(380, 30, 325, 545)
-        self.list.addItems(expense_list)
+    def init_select_date(self):
+        self.calender = QDateEdit(self)
+        self.calender.setGeometry(90, 80, 200, 40)
+        self.calender.setDate(qtoday)
+        self.calender.setStyleSheet("font-size: 20px;")
+
+        self.label_date = QLabel("Date:", self)
+        self.label_date.setGeometry(40, 80, 50, 40)
+        self.label_date.setStyleSheet("font-size: 20px;")
+
+        self.button_today = QPushButton("Today", self)
+        self.button_today.setGeometry(295, 80, 70, 40)
+        self.button_today.setStyleSheet("font-size: 16px;")
+
+        self.button_today.clicked.connect(self.set_today)
+
+    def set_today(self):
+        self.calender.setDate(qtoday)
+
+    def init_amount(self):
+        self.label_amount = QLabel("Expense: $", self)
+        self.label_amount.setGeometry(40, 130, 100, 35)
+        self.label_amount.setStyleSheet("font-size: 20px;")
+
+        self.amount = QLineEdit(self)
+        self.amount.setGeometry(140, 128, 110, 40)
+        self.amount.setPlaceholderText("0.00")
+        self.amount.setStyleSheet("font-size: 20px;")
+
+    def init_irregular(self):
+        self.irregular = QCheckBox("Irregular", self)
+        self.irregular.setGeometry(270, 128, 200, 40)
+        self.irregular.setStyleSheet("font-size: 18px;")
 
     def init_category_tree(self):
         self.expense_type_pointer = []  # Load expense categories.
@@ -256,8 +217,9 @@ class InputWindow(QWidget):
                 )
 
         self.expense_tree = QTreeWidget(self)
+        self.expense_tree.setStyleSheet("font-size: 18px;")
         self.expense_tree.setColumnCount(1)
-        self.expense_tree.setGeometry(self.switch_x, self.switch_y + 105, 324, 300)
+        self.expense_tree.setGeometry(self.switch_x, self.switch_y + 145, 324, 170)
         self.expense_tree.setHeaderHidden(True)
         self.expense_tree.addTopLevelItem(self.expense_type_pointer[0])
         self.expense_tree.setCurrentItem(self.expense_type_pointer[0])
@@ -277,8 +239,9 @@ class InputWindow(QWidget):
                 )
 
         self.income_tree = QTreeWidget(self)
+        self.income_tree.setStyleSheet("font-size: 18px;")
         self.income_tree.setColumnCount(1)
-        self.income_tree.setGeometry(self.switch_x, self.switch_y + 105, 324, 300)
+        self.income_tree.setGeometry(self.switch_x, self.switch_y + 145, 324, 170)
         self.income_tree.setHeaderHidden(True)
         self.income_tree.addTopLevelItem(self.income_type_pointer[0])
         self.income_tree.setCurrentItem(self.income_type_pointer[0])
@@ -287,11 +250,11 @@ class InputWindow(QWidget):
 
     def init_add_subcategory(self):
         self.new_category = QLineEdit(self)
-        self.new_category.setGeometry(self.switch_x, self.switch_y + 410, 200, 30)
+        self.new_category.setGeometry(self.switch_x, self.switch_y + 320, 200, 30)
         self.new_category.setPlaceholderText("new subcategory")
         self.add_category = QPushButton("Add", self)
         self.add_category.setEnabled(False)
-        self.add_category.setGeometry(self.switch_x + 210, self.switch_y + 405, 114, 40)
+        self.add_category.setGeometry(self.switch_x + 210, self.switch_y + 315, 114, 40)
 
         self.new_category.textChanged.connect(self.entering_category)
         self.add_category.clicked.connect(self.add_new_category)
@@ -302,6 +265,65 @@ class InputWindow(QWidget):
     def add_new_category(self):
         self.new_category.clear()
         self.add_category.setEnabled(False)
+
+    def init_button_submit(self):
+        self.button_submit = QPushButton("Submit", self)
+        self.button_submit.setGeometry(40, 530, 325, 45)
+        self.button_submit.setStyleSheet(
+            """
+                                        QPushButton {
+                                            font-size: 20px;
+                                            background-color: #ecffe6;
+                                            border: 2px solid #0e4708;
+                                            border-radius: 10px;
+                                        }
+                                        QPushButton:hover {
+                                            background-color: #bffabe;
+                                        }
+                                        QPushButton:pressed {
+                                            background-color: #0b4d0a;
+                                        }
+                                    """
+        )
+
+        self.button_submit.clicked.connect(self.submit_entry)
+
+    def submit_entry(self):
+        list_add(expense_list, income_list, self)
+
+    def init_list(self):
+        self.list = QListWidget(self)
+        self.list.setGeometry(380, 30, 325, 545)
+        self.list.addItems(expense_list)
+        self.list.setStyleSheet("font-size: 18px;")
+
+    def init_label_input(self):
+        self.label_input = QLabel("Input", self)
+        self.label_input.setGeometry(40, 590, 110, 70)
+        self.label_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_input.setStyleSheet(
+            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
+        )
+
+    def init_button_categories(self):
+        self.button_categories = QPushButton("Categories", self)
+        self.button_categories.setGeometry(150, 600, 110, 60)
+        self.button_categories.setStyleSheet("font-size: 18px;")
+
+        self.button_categories.clicked.connect(self.go_to_categories)
+
+    def init_button_summary(self):
+        self.button_summary = QPushButton("Summary", self)
+        self.button_summary.setGeometry(260, 600, 110, 60)
+        self.button_summary.setStyleSheet("font-size: 18px;")
+
+        self.button_summary.clicked.connect(self.go_to_summary)
+
+    def go_to_categories(self):
+        widget.setCurrentIndex(1)
+
+    def go_to_summary(self):
+        widget.setCurrentIndex(2)
 
 
 # wrap list editing into a single function to prevent mistake
