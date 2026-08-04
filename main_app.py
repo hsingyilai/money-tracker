@@ -12,12 +12,14 @@ from PyQt6.QtWidgets import (
     QLineEdit,
 )
 from PyQt6 import QtWidgets
+from PyQt6.QtCore import QDate, Qt
+from PyQt6.QtGui import QDoubleValidator
 import sys
 import json
 from anytree.importer import JsonImporter
 from anytree import LevelOrderIter
 from datetime import datetime
-from PyQt6.QtCore import QDate, Qt
+
 
 # define a QDate object for today
 qtoday = QDate(datetime.now().year, datetime.now().month, datetime.now().day)
@@ -148,6 +150,7 @@ class InputWindow(QWidget):
             self.income_tree.setVisible(True)
             self.expense_tree.setVisible(False)
             self.label_amount.setText("Income:    $")
+            self.irregular.setVisible(False)
         else:  # Expense mode.
             self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
             self.label_switch_expense.setStyleSheet(
@@ -167,6 +170,7 @@ class InputWindow(QWidget):
             self.income_tree.setVisible(False)
             self.expense_tree.setVisible(True)
             self.label_amount.setText("Expense: $")
+            self.irregular.setVisible(True)
 
     def init_select_date(self):
         self.calender = QDateEdit(self)
@@ -196,6 +200,9 @@ class InputWindow(QWidget):
         self.amount.setGeometry(140, 128, 110, 40)
         self.amount.setPlaceholderText("0.00")
         self.amount.setStyleSheet("font-size: 20px;")
+        validator = QDoubleValidator(0.00, 999999.99, 2)
+        validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        self.amount.setValidator(validator)
 
     def init_irregular(self):
         self.irregular = QCheckBox("Irregular", self)
@@ -290,6 +297,7 @@ class InputWindow(QWidget):
 
     def submit_entry(self):
         list_add(expense_list, income_list, self)
+        self.amount.clear()
 
     def init_list(self):
         self.list = QListWidget(self)
@@ -328,9 +336,24 @@ class InputWindow(QWidget):
 
 # wrap list editing into a single function to prevent mistake
 def list_add(expense_list, income_list, inputwindow: InputWindow):
-    entry = inputwindow.calender.date().toString() + "\n"
+    entry = inputwindow.calender.date().toString()
+    text = inputwindow.amount.text()
+    if not text:
+        inputwindow.amount.setText("0.00")
+
+    try:
+        # Convert to float and format to 2 decimal places
+        value = float(text)
+        inputwindow.amount.setText(f"{value:.2f}")
+    except ValueError:
+        inputwindow.amount.setText("0.00")
+
+    entry += "\n$" + inputwindow.amount.text() + "\n"
+
     if inputwindow.expense_mode:
         entry += inputwindow.expense_tree.currentItem().text(0)
+        if inputwindow.irregular.isChecked():
+            entry += " Irregular"
         expense_list.insert(0, entry)
     else:
         entry += inputwindow.income_tree.currentItem().text(0)
