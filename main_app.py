@@ -14,9 +14,10 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QScrollArea,
     QVBoxLayout,
+    QComboBox,
 )
 from PyQt6.QtCore import QDate, Qt
-from PyQt6.QtGui import QDoubleValidator
+from PyQt6.QtGui import QDoubleValidator, QAction
 import sys
 import json
 from anytree.importer import JsonImporter
@@ -108,7 +109,9 @@ class ScrollableFormApp(QWidget):
         # Add the notes.
         for text in label_list:
             label = QLabel(text)
+            label.setStyleSheet("font-size: 16px;")
             entry = QLineEdit()
+            entry.setStyleSheet("font-size: 16px;")
             self.form_layout.addRow(label, entry)
 
 
@@ -136,6 +139,7 @@ class InputWindow(QWidget):
         self.init_category_tree()
         self.init_add_subcategory()
         self.init_notes()
+        self.init_select_trip()
         self.init_button_submit()
         self.init_list()
         self.init_label_input()
@@ -321,9 +325,11 @@ class InputWindow(QWidget):
 
     def init_add_subcategory(self):
         self.new_category = QLineEdit(self)
+        self.new_category.setStyleSheet("font-size: 16px;")
         self.new_category.setGeometry(self.switch_x, self.switch_y + 320, 200, 30)
         self.new_category.setPlaceholderText("new subcategory")
         self.add_category = QPushButton("Add", self)
+        self.add_category.setStyleSheet("font-size: 16px;")
         self.add_category.setEnabled(False)
         self.add_category.setGeometry(self.switch_x + 210, self.switch_y + 315, 114, 40)
 
@@ -341,7 +347,7 @@ class InputWindow(QWidget):
         self.expense_notes = ScrollableFormApp()
         self.expense_notes.setParent(self)
         self.expense_notes.setGeometry(
-            self.switch_x - 12, self.switch_y + 345, 348, 120
+            self.switch_x - 12, self.switch_y + 345, 348, 130
         )
         self.expense_notes.assign_content(expense_type.notes)
 
@@ -354,9 +360,21 @@ class InputWindow(QWidget):
         self.label_income_note.setVisible(False)
         self.income_note_entry.setVisible(False)
 
+    def init_select_trip(self):
+        self.trip_selector = QComboBox(self)
+        self.trip_selector.setGeometry(self.switch_x, 495, 330, 35)
+        self.trip_selector.setStyleSheet("font-size: 16px;")
+
+        # Change this placeholder code
+        self.trip_selector.addItems(["Trip 1", "Trip 2", "Trip 3"])
+
+        self.trip_selector.setEditable(True)
+        self.trip_selector.setCurrentIndex(-1)
+        self.trip_selector.lineEdit().setPlaceholderText("Link to a trip")
+
     def init_button_submit(self):
         self.button_submit = QPushButton("Submit", self)
-        self.button_submit.setGeometry(40, 530, 325, 45)
+        self.button_submit.setGeometry(40, 535, 325, 50)
         self.button_submit.setStyleSheet(
             """
                                         QPushButton {
