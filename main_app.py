@@ -336,7 +336,7 @@ class InputWindow(QWidget):
 
 # wrap list editing into a single function to prevent mistake
 def list_add(expense_list, income_list, inputwindow: InputWindow):
-    entry = inputwindow.calender.date().toString()
+    entry = inputwindow.calender.date().toString("MM/dd/yyyy")
     text = inputwindow.amount.text()
     if not text:
         inputwindow.amount.setText("0.00")
@@ -348,14 +348,15 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
     except ValueError:
         inputwindow.amount.setText("0.00")
 
-    entry += "\n$" + inputwindow.amount.text() + "\n"
-
     if inputwindow.expense_mode:
-        entry += inputwindow.expense_tree.currentItem().text(0)
         if inputwindow.irregular.isChecked():
-            entry += " Irregular"
+            entry += "  Irregular"
+        entry += "\n$" + inputwindow.amount.text() + "  "
+        entry += inputwindow.expense_tree.currentItem().text(0)
+
         expense_list.insert(0, entry)
     else:
+        entry += "\n$" + inputwindow.amount.text() + "  "
         entry += inputwindow.income_tree.currentItem().text(0)
         income_list.insert(0, entry)
 
