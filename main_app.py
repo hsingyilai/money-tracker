@@ -78,7 +78,6 @@ class MainWidget(QStackedWidget):
 class ScrollableFormApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Scrollable Form")
 
         # Create the Scroll Area
         scroll = QScrollArea()
@@ -97,11 +96,26 @@ class ScrollableFormApp(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(scroll)
 
-    def assign_content(self, list):  # Assign the labels.
-        for text in list:
+    def assign_content(self, label_list: list[str]):  # Assign the labels.
+        # Clear the notes.
+        while self.form_layout.count():
+            item = self.form_layout.takeAt(0)
+            if item:
+                widget = item.widget()
+                if widget:
+                    widget.deleteLater()
+
+        # Add the notes.
+        for text in label_list:
             label = QLabel(text)
             entry = QLineEdit()
             self.form_layout.addRow(label, entry)
+
+
+class MyTreeWidgetItem(QTreeWidgetItem):
+    def __init__(self):
+        super().__init__()
+        self.notes = []  # Store the list of notes from expense_categories.json
 
 
 # The stacked child-windows.
@@ -186,6 +200,9 @@ class InputWindow(QWidget):
             self.expense_tree.setVisible(False)
             self.label_amount.setText("Income:    $")
             self.irregular.setVisible(False)
+            self.expense_notes.setVisible(False)
+            self.label_income_note.setVisible(True)
+            self.income_note_entry.setVisible(True)
         else:  # Expense mode.
             self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
             self.label_switch_expense.setStyleSheet(
@@ -206,6 +223,9 @@ class InputWindow(QWidget):
             self.expense_tree.setVisible(True)
             self.label_amount.setText("Expense: $")
             self.irregular.setVisible(True)
+            self.expense_notes.setVisible(True)
+            self.label_income_note.setVisible(False)
+            self.income_note_entry.setVisible(False)
 
     def init_select_date(self):
         self.calender = QDateEdit(self)
@@ -248,8 +268,10 @@ class InputWindow(QWidget):
         self.expense_type_pointer = []  # Load expense categories.
         i = 0
         for category in LevelOrderIter(expense_type):
-            self.expense_type_pointer.append(QTreeWidgetItem([category.name]))
-            category.index = i
+            self.expense_type_pointer.append(MyTreeWidgetItem())
+            self.expense_type_pointer[-1].setText(0, category.name)
+            self.expense_type_pointer[-1].notes = category.notes
+            category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
             i += 1
 
         for category in LevelOrderIter(expense_type):
@@ -268,6 +290,8 @@ class InputWindow(QWidget):
         )  # The 0th pointer is All Categories
         self.expense_tree.setCurrentItem(self.expense_type_pointer[0])
         self.expense_type_pointer[0].setExpanded(True)
+
+        self.expense_tree.itemClicked.connect(self.load_notes)
 
         self.income_type_pointer = []  # Load income categories.
         i = 0
@@ -292,6 +316,9 @@ class InputWindow(QWidget):
         self.income_type_pointer[0].setExpanded(True)
         self.income_tree.setVisible(False)
 
+    def load_notes(self, column):
+        self.expense_notes.assign_content(self.expense_tree.currentItem().notes)
+
     def init_add_subcategory(self):
         self.new_category = QLineEdit(self)
         self.new_category.setGeometry(self.switch_x, self.switch_y + 320, 200, 30)
@@ -311,10 +338,21 @@ class InputWindow(QWidget):
         self.add_category.setEnabled(False)
 
     def init_notes(self):
-        self.notes = ScrollableFormApp()
-        self.notes.setParent(self)
-        self.notes.setGeometry(self.switch_x - 12, self.switch_y + 345, 348, 120)
-        self.notes.assign_content(expense_type.notes)
+        self.expense_notes = ScrollableFormApp()
+        self.expense_notes.setParent(self)
+        self.expense_notes.setGeometry(
+            self.switch_x - 12, self.switch_y + 345, 348, 120
+        )
+        self.expense_notes.assign_content(expense_type.notes)
+
+        self.label_income_note = QLabel("Note:", self)
+        self.label_income_note.setStyleSheet("font-size: 18px;")
+        self.label_income_note.setGeometry(self.switch_x, self.switch_y + 355, 100, 50)
+        self.income_note_entry = QLineEdit(self)
+        self.income_note_entry.setGeometry(self.switch_x, self.switch_y + 400, 324, 50)
+        self.income_note_entry.setStyleSheet("font-size: 18px;")
+        self.label_income_note.setVisible(False)
+        self.income_note_entry.setVisible(False)
 
     def init_button_submit(self):
         self.button_submit = QPushButton("Submit", self)
