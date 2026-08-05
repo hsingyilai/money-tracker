@@ -303,7 +303,21 @@ class InputWindow(QWidget):
         self.list = QListWidget(self)
         self.list.setGeometry(380, 30, 325, 545)
         self.list.addItems(expense_list)
-        self.list.setStyleSheet("font-size: 18px;")
+        self.list.setStyleSheet(
+            """
+                            QListWidget {
+                                font-size: 18px; 
+                            }
+                            QListWidget::item {
+                                border-bottom: 2px solid gray;
+                                padding: 5px;
+                            }
+                            QListWidget::item:selected {
+                                background: #589453;
+                                border: 2px solid #2b4d28;
+                            }
+                        """
+        )
 
     def init_label_input(self):
         self.label_input = QLabel("Input", self)
