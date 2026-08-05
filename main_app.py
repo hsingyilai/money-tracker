@@ -10,8 +10,11 @@ from PyQt6.QtWidgets import (
     QTreeWidget,
     QTreeWidgetItem,
     QLineEdit,
+    QFormLayout,
+    QStackedWidget,
+    QScrollArea,
+    QVBoxLayout,
 )
-from PyQt6 import QtWidgets
 from PyQt6.QtCore import QDate, Qt
 from PyQt6.QtGui import QDoubleValidator
 import sys
@@ -21,17 +24,17 @@ from anytree import LevelOrderIter
 from datetime import datetime
 
 
-# define a QDate object for today
+# Define a QDate object for today.
 qtoday = QDate(datetime.now().year, datetime.now().month, datetime.now().day)
 
-# load the list datas
+# Load the list datas.
 with open("my_expenses.json", "r") as f:
     expense_list = json.load(f)
 
 with open("my_incomes.json", "r") as f:
     income_list = json.load(f)
 
-# load the categories
+# Load the categories.
 importer = JsonImporter()
 with open("expense_categories.json", "r") as f:
     expense_type = importer.read(f)
@@ -40,7 +43,7 @@ with open("income_categories.json", "r") as f:
     income_type = importer.read(f)
 
 
-class MainWidget(QtWidgets.QStackedWidget):
+class MainWidget(QStackedWidget):
     def __init__(self):
         super().__init__()
 
@@ -71,6 +74,37 @@ class MainWidget(QtWidgets.QStackedWidget):
         super().closeEvent(event)
 
 
+# Custom widgets for stacked child-windows in the main window.
+class ScrollableFormApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Scrollable Form")
+
+        # Create the Scroll Area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(
+            True
+        )  # Essential to let the inner widget resize properly.
+
+        # Create a container widget for the form contents.
+        form_content = QWidget()
+        self.form_layout = QFormLayout(form_content)
+
+        # Set the container widget into the scroll area.
+        scroll.setWidget(form_content)
+
+        # Set the scroll area as the main window layout.
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(scroll)
+
+    def assign_content(self, list):  # Assign the labels.
+        for text in list:
+            label = QLabel(text)
+            entry = QLineEdit()
+            self.form_layout.addRow(label, entry)
+
+
+# The stacked child-windows.
 class InputWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -87,6 +121,7 @@ class InputWindow(QWidget):
         self.init_irregular()
         self.init_category_tree()
         self.init_add_subcategory()
+        self.init_notes()
         self.init_button_submit()
         self.init_list()
         self.init_label_input()
@@ -228,7 +263,9 @@ class InputWindow(QWidget):
         self.expense_tree.setColumnCount(1)
         self.expense_tree.setGeometry(self.switch_x, self.switch_y + 145, 324, 170)
         self.expense_tree.setHeaderHidden(True)
-        self.expense_tree.addTopLevelItem(self.expense_type_pointer[0])
+        self.expense_tree.addTopLevelItem(
+            self.expense_type_pointer[0]
+        )  # The 0th pointer is All Categories
         self.expense_tree.setCurrentItem(self.expense_type_pointer[0])
         self.expense_type_pointer[0].setExpanded(True)
 
@@ -272,6 +309,12 @@ class InputWindow(QWidget):
     def add_new_category(self):
         self.new_category.clear()
         self.add_category.setEnabled(False)
+
+    def init_notes(self):
+        self.notes = ScrollableFormApp()
+        self.notes.setParent(self)
+        self.notes.setGeometry(self.switch_x - 12, self.switch_y + 345, 348, 120)
+        self.notes.assign_content(expense_type.notes)
 
     def init_button_submit(self):
         self.button_submit = QPushButton("Submit", self)
