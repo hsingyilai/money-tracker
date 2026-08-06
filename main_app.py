@@ -47,6 +47,16 @@ with open("income_categories.json", "r") as f:
     income_type = importer.read(f)
 
 
+# get the trip list
+trip_list = []
+for entry in expense_list:
+    if entry.trip != "":
+        trip_list.append(entry.trip)
+
+trip_list = list(set(trip_list))
+trip_list.sort()
+
+
 class MainWidget(QStackedWidget):
     def __init__(self):
         super().__init__()
@@ -368,7 +378,7 @@ class InputWindow(QWidget):
         self.trip_selector.setStyleSheet("font-size: 16px;")
 
         # Change this placeholder code
-        self.trip_selector.addItems(["Trip 1", "Trip 2", "Trip 3"])
+        self.trip_selector.addItems(trip_list)
 
         self.trip_selector.setEditable(True)
         self.trip_selector.setCurrentIndex(-1)
@@ -399,6 +409,12 @@ class InputWindow(QWidget):
     def submit_entry(self):
         list_add(expense_list, income_list, self)
         self.amount.clear()
+        # update trip list
+        selected_trip = self.trip_selector.currentText()
+        if selected_trip in trip_list:
+            pass
+        elif selected_trip != "":
+            self.trip_selector.addItem(selected_trip)
 
     def init_list(self):
         self.list = QListWidget(self)
