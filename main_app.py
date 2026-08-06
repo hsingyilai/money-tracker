@@ -17,12 +17,14 @@ from PyQt6.QtWidgets import (
     QComboBox,
 )
 from PyQt6.QtCore import QDate, Qt
-from PyQt6.QtGui import QDoubleValidator, QAction
+from PyQt6.QtGui import QDoubleValidator
 import sys
 import json
 from anytree.importer import JsonImporter
 from anytree import LevelOrderIter
 from datetime import datetime
+from expense_module import ExpenseEntry
+from expense_functions import expense_to_Qstring
 
 
 # Define a QDate object for today.
@@ -30,7 +32,8 @@ qtoday = QDate(datetime.now().year, datetime.now().month, datetime.now().day)
 
 # Load the list datas.
 with open("my_expenses.json", "r") as f:
-    expense_list = json.load(f)
+    expense_list_data = json.load(f)
+expense_list = [ExpenseEntry(**entry) for entry in expense_list_data]
 
 with open("my_incomes.json", "r") as f:
     income_list = json.load(f)
@@ -65,8 +68,9 @@ class MainWidget(QStackedWidget):
         self.setWindowTitle("Money Tracker")
 
     def closeEvent(self, event):
+        expense_list_data = [vars(entry) for entry in expense_list]
         with open("my_expenses.json", "w") as f:
-            json.dump(expense_list, f, indent=4)
+            json.dump(expense_list_data, f, indent=4)
 
         with open("my_incomes.json", "w") as f:
             json.dump(income_list, f, indent=4)
@@ -100,11 +104,7 @@ class ScrollableFormApp(QWidget):
     def assign_content(self, label_list: list[str]):  # Assign the labels.
         # Clear the notes.
         while self.form_layout.count():
-            item = self.form_layout.takeAt(0)
-            if item:
-                widget = item.widget()
-                if widget:
-                    widget.deleteLater()
+            self.form_layout.removeRow(0)
 
         # Add the notes.
         for text in label_list:
@@ -207,6 +207,7 @@ class InputWindow(QWidget):
             self.expense_notes.setVisible(False)
             self.label_income_note.setVisible(True)
             self.income_note_entry.setVisible(True)
+            self.trip_selector.setVisible(False)
         else:  # Expense mode.
             self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
             self.label_switch_expense.setStyleSheet(
@@ -221,7 +222,7 @@ class InputWindow(QWidget):
                 self.switch_x + 230, self.switch_y, 95, 30
             )
             self.list.clear()
-            self.list.addItems(expense_list)
+            self.list.addItems(expense_to_Qstring(expense_list))
             self.expense_mode = True
             self.income_tree.setVisible(False)
             self.expense_tree.setVisible(True)
@@ -230,6 +231,7 @@ class InputWindow(QWidget):
             self.expense_notes.setVisible(True)
             self.label_income_note.setVisible(False)
             self.income_note_entry.setVisible(False)
+            self.trip_selector.setVisible(True)
 
     def init_select_date(self):
         self.calender = QDateEdit(self)
@@ -401,7 +403,7 @@ class InputWindow(QWidget):
     def init_list(self):
         self.list = QListWidget(self)
         self.list.setGeometry(380, 30, 325, 545)
-        self.list.addItems(expense_list)
+        self.list.addItems(expense_to_Qstring(expense_list))
         self.list.setStyleSheet(
             """
                             QListWidget {
@@ -449,7 +451,8 @@ class InputWindow(QWidget):
 
 # wrap list editing into a single function to prevent mistake
 def list_add(expense_list, income_list, inputwindow: InputWindow):
-    entry = inputwindow.calender.date().toString("MM/dd/yyyy")
+    # Update QListWidget
+    q_list_entry = inputwindow.calender.date().toString("MM/dd/yyyy")
     text = inputwindow.amount.text()
     if not text:
         inputwindow.amount.setText("0.00")
@@ -463,17 +466,36 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
 
     if inputwindow.expense_mode:
         if inputwindow.irregular.isChecked():
-            entry += "  Irregular"
-        entry += "\n$" + inputwindow.amount.text() + "  "
-        entry += inputwindow.expense_tree.currentItem().text(0)
+            q_list_entry += "  Irregular"
+        q_list_entry += "\n$" + inputwindow.amount.text() + "  "
+        q_list_entry += inputwindow.expense_tree.currentItem().text(0)
 
-        expense_list.insert(0, entry)
     else:
-        entry += "\n$" + inputwindow.amount.text() + "  "
-        entry += inputwindow.income_tree.currentItem().text(0)
-        income_list.insert(0, entry)
+        q_list_entry += "\n$" + inputwindow.amount.text() + "  "
+        q_list_entry += inputwindow.income_tree.currentItem().text(0)
+        income_list.insert(0, q_list_entry)
 
-    inputwindow.list.insertItem(0, QListWidgetItem(entry))
+    inputwindow.list.insertItem(0, QListWidgetItem(q_list_entry))
+
+    # Append to expense_list and income_list
+    if inputwindow.expense_mode:
+        date = inputwindow.calender.date().toString("yyyy-MM-dd")
+        cost = float(inputwindow.amount.text())
+        category = inputwindow.expense_tree.currentItem().text(0)
+        notes_q_pair = (
+            inputwindow.expense_notes.form_layout
+        )  # QFormLayout storing (key, value) for notes.
+        notes = {}
+        for i in range(notes_q_pair.rowCount()):
+            # Get the label item/widget for the row
+            label = notes_q_pair.itemAt(i, QFormLayout.ItemRole.LabelRole)
+            # Get the field item/widget for the row
+            line_entry = notes_q_pair.itemAt(i, QFormLayout.ItemRole.FieldRole)
+            notes[label.widget().text()] = line_entry.widget().text()
+
+        regular = not inputwindow.irregular.isChecked()
+        trip = inputwindow.trip_selector.currentText()
+        expense_list.append(ExpenseEntry(date, cost, category, notes, regular, trip))
 
 
 class CategoriesWindow(QWidget):
