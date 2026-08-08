@@ -609,6 +609,7 @@ layout.addWidget(bottom_widget, stretch=1)
 
 main_widget = QWidget()
 main_widget.setLayout(layout)
+main_widget.setGeometry()
 
 main_widget.show()
 sys.exit(app.exec())
