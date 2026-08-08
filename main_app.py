@@ -59,7 +59,7 @@ trip_list = list(set(trip_list))
 trip_list.sort()
 
 
-class MainWidget(QStackedWidget):
+class MainStack(QStackedWidget):
     def __init__(self):
         super().__init__()
 
@@ -73,9 +73,6 @@ class MainWidget(QStackedWidget):
         self.addWidget(window_input)
         self.addWidget(window_categories)
         self.addWidget(window_summary)
-        self.setGeometry(600, 200, 740, 700)
-        self.setFixedHeight(700)
-        self.setFixedWidth(740)
 
         self.setWindowTitle("Money Tracker")
 
@@ -462,10 +459,10 @@ class InputWindow(QWidget):
         self.button_summary.clicked.connect(self.go_to_summary)
 
     def go_to_categories(self):
-        widget.setCurrentIndex(1)
+        top_widget.setCurrentIndex(1)
 
     def go_to_summary(self):
-        widget.setCurrentIndex(2)
+        top_widget.setCurrentIndex(2)
 
 
 # wrap list editing into a single function to prevent mistake
@@ -555,10 +552,10 @@ class CategoriesWindow(QWidget):
         self.button_summary.clicked.connect(self.go_to_summary)
 
     def go_to_input(self):
-        widget.setCurrentIndex(0)
+        top_widget.setCurrentIndex(0)
 
     def go_to_summary(self):
-        widget.setCurrentIndex(2)
+        top_widget.setCurrentIndex(2)
 
 
 class SummaryWindow(QWidget):
@@ -595,14 +592,23 @@ class SummaryWindow(QWidget):
         )
 
     def go_to_input(self):
-        widget.setCurrentIndex(0)
+        top_widget.setCurrentIndex(0)
 
     def go_to_categories(self):
-        widget.setCurrentIndex(1)
+        top_widget.setCurrentIndex(1)
 
 
 app = QApplication(sys.argv)
-widget = MainWidget()
+top_widget = MainStack()
+bottom_widget = QWidget()
+bottom_label = QLabel("Hello", bottom_widget)
 
-widget.show()
+layout = QVBoxLayout()
+layout.addWidget(top_widget, stretch=10)
+layout.addWidget(bottom_widget, stretch=1)
+
+main_widget = QWidget()
+main_widget.setLayout(layout)
+
+main_widget.show()
 sys.exit(app.exec())
