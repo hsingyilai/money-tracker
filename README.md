@@ -1,3 +1,5 @@
+Copyright (C) 2026 Hsing-Yi Lai
+
 ## License
 
 This project is licensed under the GNU General Public License
