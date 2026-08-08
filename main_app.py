@@ -23,8 +23,8 @@ import json
 from anytree.importer import JsonImporter
 from anytree import LevelOrderIter
 from datetime import datetime
-from expense_module import ExpenseEntry
-from expense_functions import expense_to_Qstring
+from expense_module import ExpenseEntry, IncomeEntry
+from expense_functions import expense_to_Qstring, income_to_Qstring
 
 
 # Define a QDate object for today.
@@ -36,7 +36,9 @@ with open("my_expenses.json", "r") as f:
 expense_list = [ExpenseEntry(**entry) for entry in expense_list_data]
 
 with open("my_incomes.json", "r") as f:
-    income_list = json.load(f)
+    income_list_data = json.load(f)
+income_list = [IncomeEntry(**entry) for entry in income_list_data]
+
 
 # Load the categories.
 importer = JsonImporter()
@@ -82,8 +84,9 @@ class MainWidget(QStackedWidget):
         with open("my_expenses.json", "w") as f:
             json.dump(expense_list_data, f, indent=4)
 
+        income_list_data = [vars(entry) for entry in income_list]
         with open("my_incomes.json", "w") as f:
-            json.dump(income_list, f, indent=4)
+            json.dump(income_list_data, f, indent=4)
 
         event.accept()
         super().closeEvent(event)
@@ -208,7 +211,7 @@ class InputWindow(QWidget):
                 self.switch_x + 95, self.switch_y, 230, 40
             )
             self.list.clear()
-            self.list.addItems(income_list)
+            self.list.addItems(income_to_Qstring(income_list))
             self.expense_mode = False
             self.income_tree.setVisible(True)
             self.expense_tree.setVisible(False)
@@ -489,13 +492,12 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
     else:
         q_list_entry += "\n$" + inputwindow.amount.text() + "  "
         q_list_entry += inputwindow.income_tree.currentItem().text(0)
-        income_list.insert(0, q_list_entry)
 
     inputwindow.list.insertItem(0, QListWidgetItem(q_list_entry))
 
     # Append to expense_list and income_list
+    date = inputwindow.calender.date().toString("yyyy-MM-dd")
     if inputwindow.expense_mode:
-        date = inputwindow.calender.date().toString("yyyy-MM-dd")
         cost = float(inputwindow.amount.text())
         category = inputwindow.expense_tree.currentItem().text(0)
         notes_q_pair = (
@@ -512,6 +514,11 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
         regular = not inputwindow.irregular.isChecked()
         trip = inputwindow.trip_selector.currentText()
         expense_list.append(ExpenseEntry(date, cost, category, notes, regular, trip))
+    else:
+        amount = float(inputwindow.amount.text())
+        category = inputwindow.income_tree.currentItem().text(0)
+        note = inputwindow.income_note_entry.text()
+        income_list.append(IncomeEntry(date, amount, category, note))
 
 
 class CategoriesWindow(QWidget):

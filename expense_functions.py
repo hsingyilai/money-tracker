@@ -185,3 +185,18 @@ def expense_to_Qstring(expense_list: list[ExpenseEntry]) -> list[str]:
         q_list.insert(0, q_string)
 
     return q_list
+
+
+def income_to_Qstring(income_list: list[IncomeEntry]) -> list[str]:
+    """Convert the IncomeEntry item into a list readable by QListWidget, note that we reverse the order
+    Args:
+        income_list: The existing expenses
+    """
+    q_list = []
+    for entry in income_list:
+        date = datetime.date.fromisoformat(entry.date)
+        q_string = date.strftime("%m/%d/%Y") + "\n$"
+        q_string += f"{entry.amount:.2f}" + " " + entry.category
+        q_list.insert(0, q_string)
+
+    return q_list
