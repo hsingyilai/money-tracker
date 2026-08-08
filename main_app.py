@@ -14,9 +14,10 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QScrollArea,
     QVBoxLayout,
+    QHBoxLayout,
     QComboBox,
 )
-from PyQt6.QtCore import QDate, Qt
+from PyQt6.QtCore import QDate, Qt, pyqtSignal
 from PyQt6.QtGui import QDoubleValidator
 import sys
 import json
@@ -59,6 +60,36 @@ trip_list = list(set(trip_list))
 trip_list.sort()
 
 
+# Main Window
+class MainWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        main_display = MainStack()
+        switch = FunctionSwitch()
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(main_display, stretch=12)
+        vbox.addWidget(switch, stretch=1)
+
+        self.setLayout(vbox)
+
+        switch.function_change.connect(main_display.set_function)
+
+    def closeEvent(self, event):
+        expense_list_data = [vars(entry) for entry in expense_list]
+        with open("my_expenses.json", "w") as f:
+            json.dump(expense_list_data, f, indent=4)
+
+        income_list_data = [vars(entry) for entry in income_list]
+        with open("my_incomes.json", "w") as f:
+            json.dump(income_list_data, f, indent=4)
+
+        event.accept()
+        super().closeEvent(event)
+
+
+# Custom Widgets for the main window
 class MainStack(QStackedWidget):
     def __init__(self):
         super().__init__()
@@ -74,19 +105,163 @@ class MainStack(QStackedWidget):
         self.addWidget(window_categories)
         self.addWidget(window_summary)
 
-        self.setWindowTitle("Money Tracker")
+    def set_function(self, function):
+        match function:
+            case "Input":
+                self.setCurrentIndex(0)
+            case "Categories":
+                self.setCurrentIndex(1)
+            case "Summary":
+                self.setCurrentIndex(2)
 
-    def closeEvent(self, event):
-        expense_list_data = [vars(entry) for entry in expense_list]
-        with open("my_expenses.json", "w") as f:
-            json.dump(expense_list_data, f, indent=4)
 
-        income_list_data = [vars(entry) for entry in income_list]
-        with open("my_incomes.json", "w") as f:
-            json.dump(income_list_data, f, indent=4)
+class FunctionSwitch(QStackedWidget):
+    function_change = pyqtSignal(str)
 
-        event.accept()
-        super().closeEvent(event)
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        input_mode = InputMode()
+        categories_mode = CategoriesMode()
+        summary_mode = SummaryMode()
+
+        self.addWidget(input_mode)
+        self.addWidget(categories_mode)
+        self.addWidget(summary_mode)
+
+        input_mode.mode_change.connect(self.set_function)
+        categories_mode.mode_change.connect(self.set_function)
+        summary_mode.mode_change.connect(self.set_function)
+
+    def set_function(self, function):
+        self.function_change.emit(function)
+        match function:
+            case "Input":
+                self.setCurrentIndex(0)
+            case "Categories":
+                self.setCurrentIndex(1)
+            case "Summary":
+                self.setCurrentIndex(2)
+
+
+class InputMode(QWidget):
+    mode_change = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        label_input = QLabel("Input", self)
+        label_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label_input.setStyleSheet(
+            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
+        )
+        label_input.setFixedHeight(60)
+
+        button_categories = QPushButton("Categories", self)
+        button_categories.setStyleSheet("font-size: 18px;")
+        button_categories.clicked.connect(self.go_to_categories)
+        button_categories.setFixedHeight(50)
+
+        button_summary = QPushButton("Summary", self)
+        button_summary.setStyleSheet("font-size: 18px;")
+        button_summary.clicked.connect(self.go_to_summary)
+        button_summary.setFixedHeight(50)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(label_input)
+        hbox.addWidget(button_categories)
+        hbox.addWidget(button_summary)
+        self.setLayout(hbox)
+
+    def go_to_categories(self):
+        self.mode_change.emit("Categories")
+
+    def go_to_summary(self):
+        self.mode_change.emit("Summary")
+
+
+class CategoriesMode(QWidget):
+    mode_change = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        button_input = QPushButton("Input", self)
+        button_input.setStyleSheet("font-size: 18px;")
+        button_input.clicked.connect(self.go_to_input)
+        button_input.setFixedHeight(50)
+
+        label_categories = QLabel("Categories", self)
+        label_categories.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label_categories.setStyleSheet(
+            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
+        )
+        label_categories.setFixedHeight(60)
+
+        button_summary = QPushButton("Summary", self)
+        button_summary.setStyleSheet("font-size: 18px;")
+        button_summary.clicked.connect(self.go_to_summary)
+        button_summary.setFixedHeight(50)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(button_input)
+        hbox.addWidget(label_categories)
+        hbox.addWidget(button_summary)
+        self.setLayout(hbox)
+
+    def go_to_input(self):
+        self.mode_change.emit("Input")
+
+    def go_to_summary(self):
+        self.mode_change.emit("Summary")
+
+
+class SummaryMode(QWidget):
+    mode_change = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+
+        self.initUI()
+
+    def initUI(self):
+        button_input = QPushButton("Input", self)
+        button_input.setStyleSheet("font-size: 18px;")
+        button_input.clicked.connect(self.go_to_input)
+        button_input.setFixedHeight(50)
+
+        button_categories = QPushButton("Categories", self)
+        button_categories.setStyleSheet("font-size: 18px;")
+        button_categories.clicked.connect(self.go_to_categories)
+        button_categories.setFixedHeight(50)
+
+        label_summary = QLabel("Summary", self)
+        label_summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label_summary.setStyleSheet(
+            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
+        )
+        label_summary.setFixedHeight(60)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(button_input)
+        hbox.addWidget(button_categories)
+        hbox.addWidget(label_summary)
+        self.setLayout(hbox)
+
+    def go_to_input(self):
+        self.mode_change.emit("Input")
+
+    def go_to_categories(self):
+        self.mode_change.emit("Categories")
 
 
 # Custom widgets for stacked child-windows in the main window.
@@ -152,9 +327,6 @@ class InputWindow(QWidget):
         self.init_select_trip()
         self.init_button_submit()
         self.init_list()
-        self.init_label_input()
-        self.init_button_categories()
-        self.init_button_summary()
 
     def init_expense_income_switch(self):
         self.label_switch_expense = QLabel("Expense", self)
@@ -436,34 +608,6 @@ class InputWindow(QWidget):
                         """
         )
 
-    def init_label_input(self):
-        self.label_input = QLabel("Input", self)
-        self.label_input.setGeometry(40, 590, 110, 70)
-        self.label_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_input.setStyleSheet(
-            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
-        )
-
-    def init_button_categories(self):
-        self.button_categories = QPushButton("Categories", self)
-        self.button_categories.setGeometry(150, 600, 110, 60)
-        self.button_categories.setStyleSheet("font-size: 18px;")
-
-        self.button_categories.clicked.connect(self.go_to_categories)
-
-    def init_button_summary(self):
-        self.button_summary = QPushButton("Summary", self)
-        self.button_summary.setGeometry(260, 600, 110, 60)
-        self.button_summary.setStyleSheet("font-size: 18px;")
-
-        self.button_summary.clicked.connect(self.go_to_summary)
-
-    def go_to_categories(self):
-        top_widget.setCurrentIndex(1)
-
-    def go_to_summary(self):
-        top_widget.setCurrentIndex(2)
-
 
 # wrap list editing into a single function to prevent mistake
 def list_add(expense_list, income_list, inputwindow: InputWindow):
@@ -525,37 +669,7 @@ class CategoriesWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.init_button_input()
-        self.init_label_categories()
-        self.init_button_summary()
-
-    def init_button_input(self):
-        self.button_input = QPushButton("Input", self)
-        self.button_input.setGeometry(40, 600, 110, 60)
-        self.button_input.setStyleSheet("font-size: 18px;")
-
-        self.button_input.clicked.connect(self.go_to_input)
-
-    def init_label_categories(self):
-        self.label_categories = QLabel("Categories", self)
-        self.label_categories.setGeometry(150, 590, 110, 70)
-        self.label_categories.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_categories.setStyleSheet(
-            "background-color: #41e8a0;font-weight: bold;font-size: 18px"
-        )
-
-    def init_button_summary(self):
-        self.button_summary = QPushButton("Summary", self)
-        self.button_summary.setGeometry(260, 600, 110, 60)
-        self.button_summary.setStyleSheet("font-size: 18px;")
-
-        self.button_summary.clicked.connect(self.go_to_summary)
-
-    def go_to_input(self):
-        top_widget.setCurrentIndex(0)
-
-    def go_to_summary(self):
-        top_widget.setCurrentIndex(2)
+        label = QLabel("Categories", self)
 
 
 class SummaryWindow(QWidget):
@@ -565,51 +679,15 @@ class SummaryWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.init_button_input()
-        self.init_button_categories()
-        self.init_label_summary()
-
-    def init_button_input(self):
-        self.button_input = QPushButton("Input", self)
-        self.button_input.setGeometry(40, 600, 110, 60)
-        self.button_input.setStyleSheet("font-size: 18px;")
-
-        self.button_input.clicked.connect(self.go_to_input)
-
-    def init_button_categories(self):
-        self.button_categories = QPushButton("Categories", self)
-        self.button_categories.setGeometry(150, 600, 110, 60)
-        self.button_categories.setStyleSheet("font-size: 18px;")
-
-        self.button_categories.clicked.connect(self.go_to_categories)
-
-    def init_label_summary(self):
-        self.label_summary = QLabel("Summary", self)
-        self.label_summary.setGeometry(260, 590, 110, 70)
-        self.label_summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_summary.setStyleSheet(
-            "background-color: #41e8a0;font-weight: bold;font-size: 18px"
-        )
-
-    def go_to_input(self):
-        top_widget.setCurrentIndex(0)
-
-    def go_to_categories(self):
-        top_widget.setCurrentIndex(1)
+        label = QLabel("Summary", self)
 
 
 app = QApplication(sys.argv)
-top_widget = MainStack()
-bottom_widget = QWidget()
-bottom_label = QLabel("Hello", bottom_widget)
+main_window = MainWindow()
+main_window.setWindowTitle("Money Tracker")
+main_window.setGeometry(500, 100, 790, 720)
+main_window.setFixedHeight(720)
+main_window.setFixedWidth(790)
 
-layout = QVBoxLayout()
-layout.addWidget(top_widget, stretch=10)
-layout.addWidget(bottom_widget, stretch=1)
-
-main_widget = QWidget()
-main_widget.setLayout(layout)
-main_widget.setGeometry()
-
-main_widget.show()
+main_window.show()
 sys.exit(app.exec())
