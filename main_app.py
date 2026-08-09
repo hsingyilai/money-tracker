@@ -534,7 +534,7 @@ class InputWindow(QWidget):
         self.expense_tree.setCurrentItem(self.expense_type_pointer[0])
         self.expense_type_pointer[0].setExpanded(True)
 
-        self.expense_tree.itemClicked.connect(self.load_notes)
+        self.expense_tree.currentItemChanged.connect(self.load_notes)
 
         self.income_type_pointer = []  # Load income categories.
         i = 0
@@ -559,7 +559,7 @@ class InputWindow(QWidget):
         self.income_type_pointer[0].setExpanded(True)
         self.income_tree.setVisible(False)
 
-    def load_notes(self, column):
+    def load_notes(self, previous):
         self.new_category.clear()
         self.add_category.setEnabled(False)
         self.expense_notes.assign_content(
