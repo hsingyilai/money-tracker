@@ -22,7 +22,7 @@ from PyQt6.QtGui import QDoubleValidator
 import sys
 import json
 from anytree.importer import JsonImporter
-from anytree import LevelOrderIter
+from anytree import LevelOrderIter, Node
 from datetime import datetime
 from expense_module import ExpenseEntry, IncomeEntry
 from expense_functions import expense_to_Qstring, income_to_Qstring
@@ -291,6 +291,8 @@ class ScrollableFormApp(QWidget):
         while self.form_layout.count():
             self.form_layout.removeRow(0)
 
+        self.init_add_note()
+
         # Add the notes.
         for text in label_list:
             label = QLabel(text)
@@ -299,11 +301,62 @@ class ScrollableFormApp(QWidget):
             entry.setStyleSheet("font-size: 16px;")
             self.form_layout.addRow(label, entry)
 
+    def init_add_note(self):
+        # For adding new notes for new subcategory
+        self.new_note = QLineEdit()
+        self.new_note.setStyleSheet("font-size: 16px;")
+        self.new_note.setPlaceholderText("new note")
+        self.new_note.setVisible(False)
+        self.new_note.textChanged.connect(self.can_add_new_note)
+
+        self.button_add = QPushButton("+")
+        self.button_add.setStyleSheet("font-size: 16px;")
+        self.button_add.setEnabled(False)
+        self.button_add.setVisible(False)
+        self.button_add.clicked.connect(self.add_new_note)
+
+    def enable_button(self):  # Show a button for adding new notes
+        last_index = self.form_layout.rowCount() - 1
+        if not isinstance(
+            self.form_layout.itemAt(
+                last_index, QFormLayout.ItemRole.LabelRole
+            ).widget(),
+            QLineEdit,
+        ):
+            # Clear the notes.
+            while self.form_layout.count():
+                self.form_layout.removeRow(0)
+
+            label = QLabel("note")
+            label.setStyleSheet("font-size: 16px;")
+            entry = QLabel("")
+            entry.setStyleSheet("font-size: 16px;")
+            self.form_layout.addRow(label, entry)
+
+            self.new_note.setVisible(True)
+            self.button_add.setVisible(True)
+            self.form_layout.addRow(self.new_note, self.button_add)
+
+    def can_add_new_note(self):
+        if self.new_note.text() == "":
+            self.button_add.setEnabled(False)
+        else:
+            self.button_add.setEnabled(True)
+
+    def add_new_note(self):
+        label = QLabel(self.new_note.text())
+        label.setStyleSheet("font-size: 16px;")
+        entry = QLabel("")
+        entry.setStyleSheet("font-size: 16px;")
+        last_index = self.form_layout.rowCount() - 1
+        self.form_layout.insertRow(last_index, label, entry)
+        self.new_note.clear()
+
 
 class MyTreeWidgetItem(QTreeWidgetItem):
     def __init__(self):
         super().__init__()
-        self.notes = []  # Store the list of notes from expense_categories.json
+        self.anytree_node = None  # The corresponding anytree.Node
 
 
 # The stacked child-windows.
@@ -458,10 +511,12 @@ class InputWindow(QWidget):
         for category in LevelOrderIter(expense_type):
             self.expense_type_pointer.append(MyTreeWidgetItem())
             self.expense_type_pointer[-1].setText(0, category.name)
-            self.expense_type_pointer[-1].notes = category.notes
+            self.expense_type_pointer[-1].anytree_node = category
             category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
             i += 1
+        self.next_pointer = i  # For adding new category
 
+        # Connect the nodes in PyQt following anytree.
         for category in LevelOrderIter(expense_type):
             for child_category in category.children:
                 self.expense_type_pointer[category.index].addChild(
@@ -505,7 +560,11 @@ class InputWindow(QWidget):
         self.income_tree.setVisible(False)
 
     def load_notes(self, column):
-        self.expense_notes.assign_content(self.expense_tree.currentItem().notes)
+        self.new_category.clear()
+        self.add_category.setEnabled(False)
+        self.expense_notes.assign_content(
+            self.expense_tree.currentItem().anytree_node.notes
+        )
 
     def init_add_subcategory(self):
         self.new_category = QLineEdit(self)
@@ -521,11 +580,51 @@ class InputWindow(QWidget):
         self.add_category.clicked.connect(self.add_new_category)
 
     def entering_category(self):
-        self.add_category.setEnabled(True)
+        if self.new_category.text() == "":
+            self.add_category.setEnabled(False)
+        else:
+            self.add_category.setEnabled(True)
+
+        if self.expense_mode:
+            self.expense_notes.enable_button()
 
     def add_new_category(self):
-        self.new_category.clear()
         self.add_category.setEnabled(False)
+
+        # Update the anytree cateogry tree
+        if self.expense_mode:
+            current_category = self.expense_tree.currentItem().anytree_node
+            notes_list = [
+                self.expense_notes.form_layout.itemAt(i, QFormLayout.ItemRole.LabelRole)
+                .widget()
+                .text()
+                for i in range(0, self.expense_notes.form_layout.rowCount() - 1)
+            ]
+
+            new_node = Node(
+                self.new_category.text(), parent=current_category, notes=notes_list
+            )
+
+            new_node.index = self.next_pointer
+            self.next_pointer += 1
+
+            # Update the PyQt tree
+            self.expense_type_pointer.append(MyTreeWidgetItem())
+            self.expense_type_pointer[-1].setText(0, new_node.name)
+            self.expense_type_pointer[current_category.index].addChild(
+                self.expense_type_pointer[-1]
+            )
+
+            self.expense_type_pointer[-1].anytree_node = new_node
+
+            self.expense_tree.setCurrentItem(self.expense_type_pointer[-1])
+
+            self.expense_notes.assign_content(
+                self.expense_tree.currentItem().anytree_node.notes
+            )
+        else:
+            pass  # Need the income part
+        self.new_category.clear()
 
     def init_notes(self):
         self.expense_notes = ScrollableFormApp()
@@ -669,7 +768,7 @@ class CategoriesWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        label = QLabel("Categories", self)
+        QLabel("The Categories page is under construction.", self)
 
 
 class SummaryWindow(QWidget):
@@ -679,7 +778,7 @@ class SummaryWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        label = QLabel("Summary", self)
+        QLabel("The Summary page is under construction", self)
 
 
 app = QApplication(sys.argv)
