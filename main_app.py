@@ -539,10 +539,14 @@ class InputWindow(QWidget):
         self.income_type_pointer = []  # Load income categories.
         i = 0
         for category in LevelOrderIter(income_type):
-            self.income_type_pointer.append(QTreeWidgetItem([category.name]))
-            category.index = i
+            self.income_type_pointer.append(MyTreeWidgetItem())
+            self.income_type_pointer[-1].setText(0, category.name)
+            self.income_type_pointer[-1].anytree_node = category
+            category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
             i += 1
+        self.next_income_pointer = i  # For adding new income category
 
+        # Connect the nodes in PyQt following anytree.
         for category in LevelOrderIter(income_type):
             for child_category in category.children:
                 self.income_type_pointer[category.index].addChild(
@@ -559,12 +563,15 @@ class InputWindow(QWidget):
         self.income_type_pointer[0].setExpanded(True)
         self.income_tree.setVisible(False)
 
+        self.income_tree.currentItemChanged.connect(self.load_notes)
+
     def load_notes(self, previous):
         self.new_category.clear()
         self.add_category.setEnabled(False)
-        self.expense_notes.assign_content(
-            self.expense_tree.currentItem().anytree_node.notes
-        )
+        if self.expense_mode:
+            self.expense_notes.assign_content(
+                self.expense_tree.currentItem().anytree_node.notes
+            )
 
     def init_add_subcategory(self):
         self.new_category = QLineEdit(self)
@@ -623,7 +630,24 @@ class InputWindow(QWidget):
                 self.expense_tree.currentItem().anytree_node.notes
             )
         else:
-            pass  # Need the income part
+            current_category = self.income_tree.currentItem().anytree_node
+
+            new_node = Node(self.new_category.text(), parent=current_category)
+
+            new_node.index = self.next_income_pointer
+            self.next_income_pointer += 1
+
+            # Update the PyQt tree
+            self.income_type_pointer.append(MyTreeWidgetItem())
+            self.income_type_pointer[-1].setText(0, new_node.name)
+            self.income_type_pointer[current_category.index].addChild(
+                self.income_type_pointer[-1]
+            )
+
+            self.income_type_pointer[-1].anytree_node = new_node
+
+            self.income_tree.setCurrentItem(self.income_type_pointer[-1])
+
         self.new_category.clear()
 
     def init_notes(self):
