@@ -22,6 +22,7 @@ from PyQt6.QtGui import QDoubleValidator
 import sys
 import json
 from anytree.importer import JsonImporter
+from anytree.exporter import JsonExporter
 from anytree import LevelOrderIter, Node
 from datetime import datetime
 from expense_module import ExpenseEntry, IncomeEntry
@@ -84,6 +85,24 @@ class MainWindow(QWidget):
         income_list_data = [vars(entry) for entry in income_list]
         with open("my_incomes.json", "w") as f:
             json.dump(income_list_data, f, indent=4)
+
+        # Remove the index which we don't need to save
+        for node in LevelOrderIter(expense_type):
+            del node.index
+
+        for node in LevelOrderIter(income_type):
+            del node.index
+
+        # Save the new expense category tree.
+        exporter = JsonExporter(indent=2)
+
+        all_category_json_string = exporter.export(expense_type)
+        with open("expense_categories.json", "w") as f:
+            f.write(all_category_json_string)
+
+        all_category_json_string = exporter.export(income_type)
+        with open("income_categories.json", "w") as f:
+            f.write(all_category_json_string)
 
         event.accept()
         super().closeEvent(event)
