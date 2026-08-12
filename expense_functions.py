@@ -100,8 +100,8 @@ def expense_string(entry: ExpenseEntry) -> str:
     message = (
         f"{date.strftime("%m/%d/%Y")} {entry.category} ${entry.cost} {entry.notes} "
     )
-    if not entry.regular:
-        message += "Irregular"
+    message += " "
+    message += entry.regular
     if entry.trip != "":
         message += f" Trip: {entry.trip}"
     return message
@@ -181,8 +181,8 @@ def expense_to_Qstring(expense_list: list[ExpenseEntry]) -> list[str]:
     for entry in expense_list:
         date = datetime.date.fromisoformat(entry.date)
         q_string = date.strftime("%m/%d/%Y")
-        if not entry.regular:
-            q_string += "  Irregular"
+        if entry.regular == "Irregular":
+            q_string += "   Irregular"
         q_string += "\n$"
         q_string += f"{entry.cost:.2f}" + " " + entry.category
         q_list.insert(0, q_string)

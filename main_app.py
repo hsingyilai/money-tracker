@@ -16,9 +16,10 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QComboBox,
+    QSpinBox,
 )
 from PyQt6.QtCore import QDate, Qt, pyqtSignal
-from PyQt6.QtGui import QDoubleValidator
+from PyQt6.QtGui import QDoubleValidator, QIntValidator
 import sys
 import json
 from anytree.importer import JsonImporter
@@ -515,14 +516,44 @@ class InputWindow(QWidget):
         self.amount.setGeometry(140, 128, 110, 40)
         self.amount.setPlaceholderText("0.00")
         self.amount.setStyleSheet("font-size: 20px;")
-        validator = QDoubleValidator(0.00, 999999.99, 2)
+        validator = QDoubleValidator(0.00, 999999.99, 2, self)
         validator.setNotation(QDoubleValidator.Notation.StandardNotation)
         self.amount.setValidator(validator)
 
     def init_irregular(self):
-        self.irregular = QCheckBox("Irregular", self)
-        self.irregular.setGeometry(270, 128, 200, 40)
+        self.irregular = QComboBox(self)
+        self.irregular.setGeometry(260, 128, 110, 40)
         self.irregular.setStyleSheet("font-size: 18px;")
+        self.irregular.addItem("Regular")
+        self.irregular.addItem("Irregular")
+        self.irregular.addItem("Regular but not monthly")
+        self.irregular.setPlaceholderText("period")
+
+        self.irregular.activated.connect(self.irregular_clicked)
+
+        self.spin_period = QSpinBox(self)
+        self.spin_period.setGeometry(270, 146, 50, 30)
+        self.spin_period.setMinimum(2)
+        self.spin_period.setMaximum(999)
+        self.spin_period.setVisible(False)
+        self.label_month = QLabel("months", self)
+        self.label_month.setGeometry(325, 146, 50, 30)
+        self.label_month.setVisible(False)
+
+    def irregular_clicked(self, index):
+        if index == 2:
+            self.irregular.setGeometry(260, 114, 110, 40)
+            self.irregular.removeItem(2)
+            self.irregular.setCurrentIndex(-1)
+            self.spin_period.setVisible(True)
+            self.label_month.setVisible(True)
+        else:
+            self.irregular.setGeometry(260, 128, 110, 40)
+            self.irregular.setEditable(False)
+            self.spin_period.setVisible(False)
+            self.label_month.setVisible(False)
+            if self.irregular.count() == 2:
+                self.irregular.addItem("Regular but not monthly")
 
     def init_category_tree(self):
         self.expense_type_pointer = []  # Load expense categories.
@@ -767,7 +798,7 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
         inputwindow.amount.setText("0.00")
 
     if inputwindow.expense_mode:
-        if inputwindow.irregular.isChecked():
+        if inputwindow.irregular.currentText() == "Irregular":
             q_list_entry += "  Irregular"
         q_list_entry += "\n$" + inputwindow.amount.text() + "  "
         q_list_entry += inputwindow.expense_tree.currentItem().text(0)
@@ -794,7 +825,11 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
             line_entry = notes_q_pair.itemAt(i, QFormLayout.ItemRole.FieldRole)
             notes[label.widget().text()] = line_entry.widget().text()
 
-        regular = not inputwindow.irregular.isChecked()
+        if inputwindow.irregular.currentIndex() == -1:
+            print("hi")
+            regular = "Every " + str(inputwindow.spin_period.value()) + " months"
+        else:
+            regular = inputwindow.irregular.currentText()
         trip = inputwindow.trip_selector.currentText()
         expense_list.append(ExpenseEntry(date, cost, category, notes, regular, trip))
     else:

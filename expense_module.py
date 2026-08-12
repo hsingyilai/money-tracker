@@ -30,7 +30,7 @@ class ExpenseEntry:
         cost: How much money does it cost in dollar.
         category: What category does this expense belongs to.
         notes: Things that you want to take notes on according to the category it belongs to.
-        regular: True if it is a regular expense.
+        regular: Regular, Irregular or Every x months, x being an integer
         trip: The trip this expense is linked to, "" if none.
     """
 
@@ -40,7 +40,7 @@ class ExpenseEntry:
         cost: float,
         category: str,
         notes: dict,
-        regular: bool,
+        regular: str,
         trip: str,
     ):
         self.date = date

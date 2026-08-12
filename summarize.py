@@ -108,7 +108,7 @@ else:
         for entry in expense_list:
             if category.name == entry.category:
                 category.total += entry.cost
-                if entry.regular:
+                if entry.regular == "Regular":
                     category.total_regular += entry.cost
                 else:
                     category.total_irregular += entry.cost
@@ -230,9 +230,9 @@ else:
 
     try:
         axes[2].pie(irregular_value, labels=irregular_category, autopct="%1.1f%%")
-        axes[2].set_title(f"Irregular ${expense_type.total_irregular}")
+        axes[2].set_title(f"Not regular ${expense_type.total_irregular}")
     except ValueError:
-        print("No irregular expanse.")
+        print("No non-regular expanse.")
 
     figure.suptitle(plot_title)
 
