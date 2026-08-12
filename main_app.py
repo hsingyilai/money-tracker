@@ -798,8 +798,14 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
         inputwindow.amount.setText("0.00")
 
     if inputwindow.expense_mode:
-        if inputwindow.irregular.currentText() == "Irregular":
-            q_list_entry += "  Irregular"
+        if inputwindow.irregular.currentText() != "Regular":
+            q_list_entry += "  "
+            if inputwindow.irregular.currentIndex() == -1:
+                q_list_entry += (
+                    "Every " + str(inputwindow.spin_period.value()) + " months"
+                )
+            else:
+                q_list_entry += "Irregular"
         q_list_entry += "\n$" + inputwindow.amount.text() + "  "
         q_list_entry += inputwindow.expense_tree.currentItem().text(0)
 
@@ -826,7 +832,6 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
             notes[label.widget().text()] = line_entry.widget().text()
 
         if inputwindow.irregular.currentIndex() == -1:
-            print("hi")
             regular = "Every " + str(inputwindow.spin_period.value()) + " months"
         else:
             regular = inputwindow.irregular.currentText()

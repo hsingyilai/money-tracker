@@ -181,8 +181,9 @@ def expense_to_Qstring(expense_list: list[ExpenseEntry]) -> list[str]:
     for entry in expense_list:
         date = datetime.date.fromisoformat(entry.date)
         q_string = date.strftime("%m/%d/%Y")
-        if entry.regular == "Irregular":
-            q_string += "   Irregular"
+        if entry.regular != "Regular":
+            q_string += "   "
+            q_string += entry.regular
         q_string += "\n$"
         q_string += f"{entry.cost:.2f}" + " " + entry.category
         q_list.insert(0, q_string)
