@@ -853,6 +853,8 @@ class InputWindow(QWidget):
             pass
         elif selected_trip != "":
             self.trip_selector.addItem(selected_trip)
+        self.list.clearSelection()
+        self.index_selected = None
 
     def init_list(self):
         self.list = QListWidget(self)
@@ -873,7 +875,7 @@ class InputWindow(QWidget):
                             }
                         """
         )
-        self.list.currentRowChanged.connect(self.list_row_change)
+        self.list.itemClicked.connect(self.list_clicked)
 
         self.button_add_back = QPushButton("Add back", self)
         self.button_add_back.setStyleSheet(
@@ -936,8 +938,8 @@ class InputWindow(QWidget):
         self.button_new_entry.setGeometry(605, 550, 100, 30)
         self.button_new_entry.clicked.connect(self.new_entry)
 
-    def list_row_change(self, index):
-        self.index_selected = index
+    def list_clicked(self, item):
+        self.index_selected = self.list.row(item)
         self.button_delete.setDisabled(False)
 
     def new_entry(self):
@@ -947,6 +949,8 @@ class InputWindow(QWidget):
 
     def delete_entry(self):
         list_remove(expense_list, income_list, self)
+        self.list.clearSelection()
+        self.index_selected = None
 
 
 # wrap list editing into a single function to prevent mistake
