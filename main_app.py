@@ -52,7 +52,7 @@ with open("income_categories.json", "r") as f:
     income_type = importer.read(f)
 
 
-# get the trip list
+# Get the trip list.
 trip_list = []
 for entry in expense_list:
     if entry.trip != "":
@@ -60,6 +60,10 @@ for entry in expense_list:
 
 trip_list = list(set(trip_list))
 trip_list.sort()
+
+# Stores the removed entry as a stack of ExpenseEntry or IncomeEntry
+removed_expense = []
+removed_income = []
 
 
 # Main Window
@@ -871,8 +875,8 @@ class InputWindow(QWidget):
         )
         self.list.currentRowChanged.connect(self.list_row_change)
 
-        self.button_restore = QPushButton("Restore", self)
-        self.button_restore.setStyleSheet(
+        self.button_add_back = QPushButton("Add back", self)
+        self.button_add_back.setStyleSheet(
             """
                                         QPushButton {
                                             font-size: 16px;
@@ -888,8 +892,8 @@ class InputWindow(QWidget):
                                         }
                                     """
         )
-        self.button_restore.setGeometry(385, 550, 100, 30)
-        self.button_restore.setDisabled(True)
+        self.button_add_back.setGeometry(385, 550, 100, 30)
+        self.button_add_back.setDisabled(True)
 
         self.button_delete = QPushButton("Delete", self)
         self.button_delete.setStyleSheet(
@@ -910,6 +914,7 @@ class InputWindow(QWidget):
         )
         self.button_delete.setGeometry(495, 550, 100, 30)
         self.button_delete.setDisabled(True)
+        self.button_delete.clicked.connect(self.delete_entry)
 
         self.button_new_entry = QPushButton("New Entry", self)
         self.button_new_entry.setStyleSheet(
@@ -939,6 +944,9 @@ class InputWindow(QWidget):
         self.list.clearSelection()
         self.index_selected = None
         self.button_delete.setDisabled(True)
+
+    def delete_entry(self):
+        list_remove(expense_list, income_list, self)
 
 
 # wrap list editing into a single function to prevent mistake
@@ -1001,6 +1009,22 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
         category = inputwindow.income_tree.currentItem().text(0)
         note = inputwindow.income_note_entry.text()
         income_list.append(IncomeEntry(date, amount, category, note))
+
+
+def list_remove(expense_list, income_list, inputwindow: InputWindow):
+    # put item into removed list to be restored
+    if inputwindow.expense_mode:
+        # Convert the index since the order of two lists are reversed
+        index = len(expense_list) - 1 - inputwindow.index_selected
+        removed_expense.append(expense_list.pop(index))
+    else:
+        # Convert the index since the order of two lists are reversed
+        index = len(income_list) - 1 - inputwindow.index_selected
+        removed_income.append(income_list.pop(index))
+
+    # Update QListWidget, need to do this after the above because the removing row in q_list will update the idex
+    q_list_entry = inputwindow.list.takeItem(inputwindow.index_selected)
+    del q_list_entry
 
 
 class CategoriesWindow(QWidget):
