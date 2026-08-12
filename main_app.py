@@ -847,7 +847,7 @@ class InputWindow(QWidget):
 
     def init_list(self):
         self.list = QListWidget(self)
-        self.list.setGeometry(380, 30, 325, 545)
+        self.list.setGeometry(380, 30, 330, 510)
         self.list.addItems(expense_to_Qstring(expense_list))
         self.list.setStyleSheet(
             """
@@ -864,6 +864,65 @@ class InputWindow(QWidget):
                             }
                         """
         )
+
+        self.button_restore = QPushButton("Restore", self)
+        self.button_restore.setStyleSheet(
+            """
+                                        QPushButton {
+                                            font-size: 16px;
+                                            background-color: #f2f2f2;
+                                            border: 1px solid #262626;
+                                            border-radius: 10px;
+                                        }
+                                        QPushButton:hover {
+                                            background-color: #c2c2c2;
+                                        }
+                                        QPushButton:pressed {
+                                            background-color: #949494;
+                                        }
+                                    """
+        )
+        self.button_restore.setGeometry(385, 550, 100, 30)
+        self.button_restore.setDisabled(True)
+
+        self.button_delete = QPushButton("Delete", self)
+        self.button_delete.setStyleSheet(
+            """
+                                        QPushButton {
+                                            font-size: 16px;
+                                            background-color: #f2f2f2;
+                                            border: 1px solid #262626;
+                                            border-radius: 10px;
+                                        }
+                                        QPushButton:hover {
+                                            background-color: #c2c2c2;
+                                        }
+                                        QPushButton:pressed {
+                                            background-color: #949494;
+                                        }
+                                    """
+        )
+        self.button_delete.setGeometry(495, 550, 100, 30)
+        self.button_delete.setDisabled(True)
+
+        self.button_new_entry = QPushButton("New Entry", self)
+        self.button_new_entry.setStyleSheet(
+            """
+                                        QPushButton {
+                                            font-size: 16px;
+                                            background-color: #f2f2f2;
+                                            border: 1px solid #262626;
+                                            border-radius: 10px;
+                                        }
+                                        QPushButton:hover {
+                                            background-color: #c2c2c2;
+                                        }
+                                        QPushButton:pressed {
+                                            background-color: #949494;
+                                        }
+                                    """
+        )
+        self.button_new_entry.setGeometry(605, 550, 100, 30)
 
 
 # wrap list editing into a single function to prevent mistake
