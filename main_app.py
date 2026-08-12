@@ -474,6 +474,7 @@ class InputWindow(QWidget):
     def initUI(self):
         self.switch_x = 40
         self.switch_y = 30
+        self.index_selected = None  # The index of selected entry on the list
         self.init_expense_income_switch()
         self.init_select_date()
         self.init_amount()
@@ -537,6 +538,8 @@ class InputWindow(QWidget):
                 self.switch_x + 95, self.switch_y, 230, 40
             )
             self.list.clear()
+            self.button_delete.setDisabled(True)
+            self.index_selected = None
             self.list.addItems(income_to_Qstring(income_list))
             self.expense_mode = False
             self.income_tree.setVisible(True)
@@ -561,6 +564,8 @@ class InputWindow(QWidget):
                 self.switch_x + 230, self.switch_y, 95, 30
             )
             self.list.clear()
+            self.button_delete.setDisabled(True)
+            self.index_selected = None
             self.list.addItems(expense_to_Qstring(expense_list))
             self.expense_mode = True
             self.income_tree.setVisible(False)
@@ -864,6 +869,7 @@ class InputWindow(QWidget):
                             }
                         """
         )
+        self.list.currentRowChanged.connect(self.list_row_change)
 
         self.button_restore = QPushButton("Restore", self)
         self.button_restore.setStyleSheet(
@@ -923,6 +929,16 @@ class InputWindow(QWidget):
                                     """
         )
         self.button_new_entry.setGeometry(605, 550, 100, 30)
+        self.button_new_entry.clicked.connect(self.new_entry)
+
+    def list_row_change(self, index):
+        self.index_selected = index
+        self.button_delete.setDisabled(False)
+
+    def new_entry(self):
+        self.list.clearSelection()
+        self.index_selected = None
+        self.button_delete.setDisabled(True)
 
 
 # wrap list editing into a single function to prevent mistake
