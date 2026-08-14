@@ -176,7 +176,7 @@ class FunctionSwitch(QStackedWidget):
                 self.setCurrentIndex(1)
             case "Summary":
                 self.setCurrentIndex(2)
-            case _:
+            case "Periodic Expenses":
                 self.setCurrentIndex(3)
 
 
@@ -206,7 +206,7 @@ class InputMode(QWidget):
         button_summary.clicked.connect(self.go_to_summary)
         button_summary.setFixedHeight(50)
 
-        button_periodic = QPushButton("Periodic Expense", self)
+        button_periodic = QPushButton("Periodic Expenses", self)
         button_periodic.setStyleSheet("font-size: 18px;")
         button_periodic.clicked.connect(self.go_to_periodic)
         button_periodic.setFixedHeight(50)
@@ -225,7 +225,7 @@ class InputMode(QWidget):
         self.mode_change.emit("Summary")
 
     def go_to_periodic(self):
-        self.mode_change.emit("Periodic Expense")
+        self.mode_change.emit("Periodic Expenses")
 
 
 class CategoriesMode(QWidget):
@@ -254,7 +254,7 @@ class CategoriesMode(QWidget):
         button_summary.clicked.connect(self.go_to_summary)
         button_summary.setFixedHeight(50)
 
-        button_periodic = QPushButton("Periodic Expense", self)
+        button_periodic = QPushButton("Periodic Expenses", self)
         button_periodic.setStyleSheet("font-size: 18px;")
         button_periodic.clicked.connect(self.go_to_periodic)
         button_periodic.setFixedHeight(50)
@@ -273,7 +273,7 @@ class CategoriesMode(QWidget):
         self.mode_change.emit("Summary")
 
     def go_to_periodic(self):
-        self.mode_change.emit("Periodic Expense")
+        self.mode_change.emit("Periodic Expenses")
 
 
 class SummaryMode(QWidget):
@@ -302,7 +302,7 @@ class SummaryMode(QWidget):
         )
         label_summary.setFixedHeight(60)
 
-        button_periodic = QPushButton("Periodic Expense", self)
+        button_periodic = QPushButton("Periodic Expenses", self)
         button_periodic.setStyleSheet("font-size: 18px;")
         button_periodic.clicked.connect(self.go_to_periodic)
         button_periodic.setFixedHeight(50)
@@ -321,7 +321,7 @@ class SummaryMode(QWidget):
         self.mode_change.emit("Categories")
 
     def go_to_periodic(self):
-        self.mode_change.emit("Periodic Expense")
+        self.mode_change.emit("s")
 
 
 class PeriodicMode(QWidget):
@@ -348,7 +348,7 @@ class PeriodicMode(QWidget):
         button_summary.clicked.connect(self.go_to_summary)
         button_summary.setFixedHeight(50)
 
-        label_periodic = QLabel("Periodic Expense", self)
+        label_periodic = QLabel("Periodic Expenses", self)
         label_periodic.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label_periodic.setStyleSheet(
             "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
@@ -1058,7 +1058,7 @@ class PeriodicWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        QLabel("The Periodic Expense page is under construction", self)
+        QLabel("The Periodic Expenses page is under construction", self)
 
 
 app = QApplication(sys.argv)
