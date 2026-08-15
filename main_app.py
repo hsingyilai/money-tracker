@@ -955,8 +955,7 @@ class InputWindow(QWidget):
 
 # wrap list editing into a single function to prevent mistake
 def list_add(expense_list, income_list, inputwindow: InputWindow):
-    # Update QListWidget
-    q_list_entry = inputwindow.calender.date().toString("MM/dd/yyyy")
+    # Fix the formate of amount.
     text = inputwindow.amount.text()
     if not text:
         inputwindow.amount.setText("0.00")
@@ -967,24 +966,6 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
         inputwindow.amount.setText(f"{value:.2f}")
     except ValueError:
         inputwindow.amount.setText("0.00")
-
-    if inputwindow.expense_mode:
-        if inputwindow.irregular.currentText() != "Regular":
-            q_list_entry += "  "
-            if inputwindow.irregular.currentIndex() == -1:
-                q_list_entry += (
-                    "Every " + str(inputwindow.spin_period.value()) + " months"
-                )
-            else:
-                q_list_entry += "Irregular"
-        q_list_entry += "\n$" + inputwindow.amount.text() + "  "
-        q_list_entry += inputwindow.expense_tree.currentItem().text(0)
-
-    else:
-        q_list_entry += "\n$" + inputwindow.amount.text() + "  "
-        q_list_entry += inputwindow.income_tree.currentItem().text(0)
-
-    inputwindow.list.insertItem(0, QListWidgetItem(q_list_entry))
 
     # Append to expense_list and income_list
     date = inputwindow.calender.date().toString("yyyy-MM-dd")
@@ -1013,6 +994,14 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
         category = inputwindow.income_tree.currentItem().text(0)
         note = inputwindow.income_note_entry.text()
         income_list.append(IncomeEntry(date, amount, category, note))
+
+    # Update QListWidget
+    if inputwindow.expense_mode:
+        q_list_entry = expense_to_Qstring([expense_list[-1]])
+    else:
+        q_list_entry = income_to_Qstring([income_list[-1]])
+
+    inputwindow.list.insertItem(0, QListWidgetItem(q_list_entry[0]))
 
 
 def list_remove(expense_list, income_list, inputwindow: InputWindow):

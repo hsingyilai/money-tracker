@@ -185,7 +185,8 @@ def expense_to_Qstring(expense_list: list[ExpenseEntry]) -> list[str]:
             q_string += "   "
             q_string += entry.regular
         q_string += "\n$"
-        q_string += f"{entry.cost:.2f}" + " " + entry.category
+        q_string += f"{entry.cost:.2f}" + " " + entry.category + "\n"
+        q_string += entry.notes["note"]
         q_list.insert(0, q_string)
 
     return q_list
@@ -200,7 +201,7 @@ def income_to_Qstring(income_list: list[IncomeEntry]) -> list[str]:
     for entry in income_list:
         date = datetime.date.fromisoformat(entry.date)
         q_string = date.strftime("%m/%d/%Y") + "\n$"
-        q_string += f"{entry.amount:.2f}" + " " + entry.category
+        q_string += f"{entry.amount:.2f}" + " " + entry.category + "\n" + entry.note
         q_list.insert(0, q_string)
 
     return q_list
