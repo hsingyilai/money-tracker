@@ -321,7 +321,7 @@ class SummaryMode(QWidget):
         self.mode_change.emit("Categories")
 
     def go_to_periodic(self):
-        self.mode_change.emit("s")
+        self.mode_change.emit("Periodic Expenses")
 
 
 class PeriodicMode(QWidget):
