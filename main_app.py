@@ -554,6 +554,10 @@ class InputWindow(QWidget):
             self.label_income_note.setVisible(True)
             self.income_note_entry.setVisible(True)
             self.trip_selector.setVisible(False)
+            if len(removed_income) == 0:
+                self.button_add_back.setDisabled(True)
+            else:
+                self.button_add_back.setDisabled(False)
         else:  # Expense mode.
             self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
             self.label_switch_expense.setStyleSheet(
@@ -580,6 +584,10 @@ class InputWindow(QWidget):
             self.label_income_note.setVisible(False)
             self.income_note_entry.setVisible(False)
             self.trip_selector.setVisible(True)
+            if len(removed_expense) == 0:
+                self.button_add_back.setDisabled(True)
+            else:
+                self.button_add_back.setDisabled(False)
 
     def init_select_date(self):
         self.calender = QDateEdit(self)
@@ -896,6 +904,7 @@ class InputWindow(QWidget):
         )
         self.button_add_back.setGeometry(385, 550, 100, 30)
         self.button_add_back.setDisabled(True)
+        self.button_add_back.clicked.connect(self.add_back)
 
         self.button_delete = QPushButton("Delete", self)
         self.button_delete.setStyleSheet(
@@ -951,6 +960,21 @@ class InputWindow(QWidget):
         list_remove(expense_list, income_list, self)
         self.list.clearSelection()
         self.index_selected = None
+        self.button_add_back.setDisabled(False)
+
+    def add_back(self):
+        if self.expense_mode:
+            expense_list.append(removed_expense.pop(-1))
+            q_list_entry = expense_to_Qstring([expense_list[-1]])
+            if len(removed_expense) == 0:
+                self.button_add_back.setDisabled(True)
+        else:
+            income_list.append(removed_income.pop(-1))
+            q_list_entry = income_to_Qstring([income_list[-1]])
+            if len(removed_income) == 0:
+                self.button_add_back.setDisabled(True)
+
+        self.list.insertItem(0, QListWidgetItem(q_list_entry[0]))
 
 
 # wrap list editing into a single function to prevent mistake
