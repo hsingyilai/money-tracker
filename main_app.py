@@ -26,15 +26,21 @@ from anytree.importer import JsonImporter
 from anytree.exporter import JsonExporter
 from anytree import LevelOrderIter, Node, PreOrderIter, PostOrderIter
 import copy
-from datetime import datetime
+import datetime
 from expense_module import ExpenseEntry, IncomeEntry
-from expense_functions import expense_to_Qstring, income_to_Qstring, expense_string
+from expense_functions import (
+    expense_to_Qstring,
+    income_to_Qstring,
+    expense_string,
+    get_trip_list,
+)
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 
 # Define a QDate object for today.
-qtoday = QDate(datetime.now().year, datetime.now().month, datetime.now().day)
+date_now = datetime.datetime.now()
+qtoday = QDate(date_now.year, date_now.month, date_now.day)
 
 # Load the list datas.
 with open("my_expenses.json", "r") as f:
@@ -56,13 +62,7 @@ with open("income_categories.json", "r") as f:
 
 
 # Get the trip list.
-trip_list = []
-for entry in expense_list:
-    if entry.trip != "":
-        trip_list.append(entry.trip)
-
-trip_list = list(set(trip_list))
-trip_list.sort()
+trip_list = get_trip_list(expense_list)
 
 # Stores the removed entry as a stack of ExpenseEntry or IncomeEntry
 removed_expense = []
@@ -142,7 +142,9 @@ class MainStack(QStackedWidget):
                 self.setCurrentIndex(1)
             case "Summary":
                 self.setCurrentIndex(2)
-            case _:
+                page = self.widget(2)
+                page.load_options(page.summary_type.currentText())
+            case "Periodic Expenses":
                 self.setCurrentIndex(3)
 
 
@@ -856,7 +858,7 @@ class InputWindow(QWidget):
         self.button_submit.clicked.connect(self.submit_entry)
 
     def submit_entry(self):
-        list_add(expense_list, income_list, self)
+        list_add(self)
         self.amount.clear()
         # update trip list
         selected_trip = self.trip_selector.currentText()
@@ -864,6 +866,8 @@ class InputWindow(QWidget):
             pass
         elif selected_trip != "":
             self.trip_selector.addItem(selected_trip)
+            trip_list.append(selected_trip)
+            trip_list.sort()
         self.list.clearSelection()
         self.index_selected = None
 
@@ -960,7 +964,7 @@ class InputWindow(QWidget):
         self.button_delete.setDisabled(True)
 
     def delete_entry(self):
-        list_remove(expense_list, income_list, self)
+        list_remove(self)
         self.list.clearSelection()
         self.index_selected = None
         self.button_add_back.setDisabled(False)
@@ -981,7 +985,7 @@ class InputWindow(QWidget):
 
 
 # wrap list editing into a single function to prevent mistake
-def list_add(expense_list, income_list, inputwindow: InputWindow):
+def list_add(inputwindow: InputWindow):
     # Fix the formate of amount.
     text = inputwindow.amount.text()
     if not text:
@@ -1031,12 +1035,15 @@ def list_add(expense_list, income_list, inputwindow: InputWindow):
     inputwindow.list.insertItem(0, QListWidgetItem(q_list_entry[0]))
 
 
-def list_remove(expense_list, income_list, inputwindow: InputWindow):
-    # put item into removed list to be restored
+def list_remove(inputwindow: InputWindow):
+    # Put item into removed list to be restored
     if inputwindow.expense_mode:
         # Convert the index since the order of two lists are reversed
         index = len(expense_list) - 1 - inputwindow.index_selected
         removed_expense.append(expense_list.pop(index))
+        # Update trip list
+        global trip_list
+        trip_list = get_trip_list(expense_list)
     else:
         # Convert the index since the order of two lists are reversed
         index = len(income_list) - 1 - inputwindow.index_selected
@@ -1064,72 +1071,133 @@ class SummaryWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.label_trip = QLabel("Trips: ", self)
-        self.label_trip.setStyleSheet("font-size: 18px;")
-        self.select_trip = QComboBox(self)
-        self.select_trip.setStyleSheet("font-size: 18px;")
-        self.select_trip.addItems(trip_list)
+        self.summary_type = QComboBox(self)
+        self.summary_type.setStyleSheet("font-size: 18px;")
+        self.summary_type.addItem("Summarize regular expenses by time")
+        self.summary_type.addItem("Summarize non-regular expenses by time")
+        self.summary_type.addItem("Compare regular and non-regular expenses by time")
+        self.summary_type.addItem("Summarize all expense types by time")
+        self.summary_type.addItem("Summarize a trip")
 
-        self.button_trip = QPushButton("Summarize Trip", self)
-        self.button_trip.setStyleSheet("font-size: 18px;")
+        self.summary_type.currentTextChanged.connect(self.load_options)
 
-        self.button_trip.clicked.connect(self.summarize_trip)
+        self.select = QComboBox(self)
+        self.select.setStyleSheet("font-size: 18px;")
+        self.load_options("Summarize regular expenses by time")
+
+        self.button_summarize = QPushButton("Summarize", self)
+        self.button_summarize.setStyleSheet("font-size: 18px;")
+
+        self.button_summarize.clicked.connect(self.summarize)
 
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
 
         layout = QVBoxLayout()
         self.setLayout(layout)
-        layout.addWidget(self.label_trip)
-        layout.addWidget(self.select_trip)
-        layout.addWidget(self.button_trip)
+        layout.addWidget(self.summary_type)
+        layout.addWidget(self.select)
+        layout.addWidget(self.button_summarize)
         layout.addWidget(self.canvas)
 
-    def summarize_trip(self):
+    def load_options(self, text):
+        self.select.clear()
+        match text:
+            case (
+                "Summarize regular expenses by time"
+                | "Summarize non-regular expenses by time"
+                | "Compare regular and non-regular expenses by time"
+                | "Summarize all expense types by time"
+            ):
+                self.select.addItem("All time")
+                # Figure out the options of year.
+                year_list = []
+                for entry in expense_list:
+                    date = datetime.date.fromisoformat(entry.date)
+                    year_list.append(date.year)
+
+                year_list = list(set(year_list))
+                year_list.sort()
+
+                # Figure out the options of month.
+                month_list = []  # Store year in month in (year * 100 + month) integer format.
+                for entry in expense_list:
+                    date = datetime.date.fromisoformat(entry.date)
+                    for year in year_list:
+                        if date.year == year:
+                            month_list.append(year * 100 + date.month)
+
+                month_list = list(set(month_list))
+                month_list.sort()
+
+                # Add to QCombobox
+                for month in month_list:
+                    self.select.addItem(str(month % 100) + "/" + str(month // 100))
+
+            case "Summarize a trip":
+                self.select.addItems(trip_list)
+            case _:
+                print("Unknown summary type.")
+
+    def summarize(self):
         # Clear the previous plot to prevent overlapping lines
         self.figure.clear()
-        print("=" * 100)
-        print(f"Expenses for {self.select_trip.currentText()}:")
-        # Create a list only containing the expenses on the trip and print it
-        trip_expense_list = []
-        for entry in expense_list:
-            if entry.trip == self.select_trip.currentText():
-                trip_expense_list.append(entry)
-                print(expense_string(entry))
-
-        # Sum the spending at the last child level.
-        expense_type_copy = copy.deepcopy(expense_type)
-        for category in PreOrderIter(expense_type_copy):
-            setattr(category, "total", 0)
-            for entry in trip_expense_list:
-                if category.name == entry.category:
-                    category.total += entry.cost
-
-        # Sum the spending of subcategories into categories.
-        for category in PostOrderIter(expense_type_copy):
-            for child in category.children:
-                category.total += child.total
-
-        for category in PreOrderIter(expense_type_copy):
-            category.total = round(category.total, 2)
-
-        print("Total spending in each category:")
-        total_category = []
-        total_value = []
-        for category in PreOrderIter(expense_type_copy):
-            if category.total > 0:
-                print(
-                    f"{len(category.ancestors) * '   '}{category.name}: ${category.total}"
-                )
-                if len(category.children) == 0:
-                    total_category.append(category.name + f" ${category.total}")
-                    total_value.append(category.total)
-
-        # Draw the pie charts.
         # Create an axes object and plot data
         ax = self.figure.add_subplot(111)
-        ax.pie(total_value, labels=total_category, autopct="%1.1f%%")
-        ax.set_title(self.select_trip.currentText() + f"\n${expense_type_copy.total}")
+        print("=" * 100)
+        print(f"Expenses for {self.select.currentText()}:")
+
+        match self.summary_type.currentText():
+            case "Summarize a trip":
+                # Create a list only containing the expenses on the trip and print it
+                trip_expense_list = []
+                for entry in expense_list:
+                    if entry.trip == self.select.currentText():
+                        trip_expense_list.append(entry)
+                        print(expense_string(entry))
+
+                # Sum the spending at the last child level.
+                expense_type_copy = copy.deepcopy(expense_type)
+                for category in PreOrderIter(expense_type_copy):
+                    setattr(category, "total", 0)
+                    for entry in trip_expense_list:
+                        if category.name == entry.category:
+                            category.total += entry.cost
+
+                # Sum the spending of subcategories into categories.
+                for category in PostOrderIter(expense_type_copy):
+                    for child in category.children:
+                        category.total += child.total
+
+                for category in PreOrderIter(expense_type_copy):
+                    category.total = round(category.total, 2)
+
+                print("Total spending in each category:")
+                total_category = []
+                total_value = []
+                for category in PreOrderIter(expense_type_copy):
+                    if category.total > 0:
+                        print(
+                            f"{len(category.ancestors) * '   '}{category.name}: ${category.total}"
+                        )
+                        if len(category.children) == 0:
+                            total_category.append(category.name + f" ${category.total}")
+                            total_value.append(category.total)
+
+                # Draw the pie charts.
+                ax.pie(total_value, labels=total_category, autopct="%1.1f%%")
+                ax.set_title(
+                    self.select.currentText() + f"\n${expense_type_copy.total}"
+                )
+
+            case "Summarize regular expenses by time":
+                ax.plot([1, 2, 3], [3, 2, 3])
+            case "Summarize non-regular expenses by time":
+                ax.plot([1, 2, 3], [3, 2, 3])
+            case "Compare regular and non-regular expenses by time":
+                ax.plot([1, 2, 3], [3, 2, 3])
+            case "Summarize all expense types by time":
+                ax.plot([1, 2, 3], [3, 2, 3])
         self.canvas.draw()
 
 

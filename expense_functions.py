@@ -205,3 +205,18 @@ def income_to_Qstring(income_list: list[IncomeEntry]) -> list[str]:
         q_list.insert(0, q_string)
 
     return q_list
+
+
+def get_trip_list(expense_list: list[ExpenseEntry]) -> list[str]:
+    """Get the list of trips from expense_list
+    Args:
+        expense_list: The existing expenses
+    """
+    trip_list = []
+    for entry in expense_list:
+        if entry.trip != "":
+            trip_list.append(entry.trip)
+
+    trip_list = list(set(trip_list))
+    trip_list.sort()
+    return trip_list
