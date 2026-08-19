@@ -24,10 +24,13 @@ import sys
 import json
 from anytree.importer import JsonImporter
 from anytree.exporter import JsonExporter
-from anytree import LevelOrderIter, Node
+from anytree import LevelOrderIter, Node, PreOrderIter, PostOrderIter
+import copy
 from datetime import datetime
 from expense_module import ExpenseEntry, IncomeEntry
-from expense_functions import expense_to_Qstring, income_to_Qstring
+from expense_functions import expense_to_Qstring, income_to_Qstring, expense_string
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 
 # Define a QDate object for today.
@@ -1061,7 +1064,73 @@ class SummaryWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        QLabel("The Summary page is under construction", self)
+        self.label_trip = QLabel("Trips: ", self)
+        self.label_trip.setStyleSheet("font-size: 18px;")
+        self.select_trip = QComboBox(self)
+        self.select_trip.setStyleSheet("font-size: 18px;")
+        self.select_trip.addItems(trip_list)
+
+        self.button_trip = QPushButton("Summarize Trip", self)
+        self.button_trip.setStyleSheet("font-size: 18px;")
+
+        self.button_trip.clicked.connect(self.summarize_trip)
+
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        layout.addWidget(self.label_trip)
+        layout.addWidget(self.select_trip)
+        layout.addWidget(self.button_trip)
+        layout.addWidget(self.canvas)
+
+    def summarize_trip(self):
+        # Clear the previous plot to prevent overlapping lines
+        self.figure.clear()
+        print("=" * 100)
+        print(f"Expenses for {self.select_trip.currentText()}:")
+        # Create a list only containing the expenses on the trip and print it
+        trip_expense_list = []
+        for entry in expense_list:
+            if entry.trip == self.select_trip.currentText():
+                trip_expense_list.append(entry)
+                print(expense_string(entry))
+
+        # Sum the spending at the last child level.
+        expense_type_copy = copy.deepcopy(expense_type)
+        for category in PreOrderIter(expense_type_copy):
+            setattr(category, "total", 0)
+            for entry in trip_expense_list:
+                if category.name == entry.category:
+                    category.total += entry.cost
+
+        # Sum the spending of subcategories into categories.
+        for category in PostOrderIter(expense_type_copy):
+            for child in category.children:
+                category.total += child.total
+
+        for category in PreOrderIter(expense_type_copy):
+            category.total = round(category.total, 2)
+
+        print("Total spending in each category:")
+        total_category = []
+        total_value = []
+        for category in PreOrderIter(expense_type_copy):
+            if category.total > 0:
+                print(
+                    f"{len(category.ancestors) * '   '}{category.name}: ${category.total}"
+                )
+                if len(category.children) == 0:
+                    total_category.append(category.name + f" ${category.total}")
+                    total_value.append(category.total)
+
+        # Draw the pie charts.
+        # Create an axes object and plot data
+        ax = self.figure.add_subplot(111)
+        ax.pie(total_value, labels=total_category, autopct="%1.1f%%")
+        ax.set_title(self.select_trip.currentText() + f"\n${expense_type_copy.total}")
+        self.canvas.draw()
 
 
 class PeriodicWindow(QWidget):
