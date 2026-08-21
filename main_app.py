@@ -876,8 +876,17 @@ class InputWindow(QWidget):
         self.index_selected = None
 
     def init_list(self):
+        self.label_find = QLabel("Find:", self)
+        self.label_find.setGeometry(380, 30, 40, 30)
+        self.label_find.setStyleSheet("font-size: 18px;")
+
+        self.text_find = QLineEdit(self)
+        self.text_find.setGeometry(425, 30, 285, 30)
+        self.text_find.setStyleSheet("font-size: 18px;")
+        self.text_find.textChanged.connect(self.filter_list)
+
         self.list = QListWidget(self)
-        self.list.setGeometry(380, 30, 330, 510)
+        self.list.setGeometry(380, 65, 330, 475)
         self.list.addItems(expense_to_Qstring(expense_list))
         self.list.setStyleSheet(
             """
@@ -986,6 +995,19 @@ class InputWindow(QWidget):
                 self.button_add_back.setDisabled(True)
 
         self.list.insertItem(0, QListWidgetItem(q_list_entry[0]))
+
+    def filter_list(self, text):
+        if text == "":
+            for i in range(self.list.count()):
+                item = self.list.item(i)
+                item.setHidden(False)
+        else:
+            text = text.lower()
+
+            for i in range(self.list.count()):
+                item = self.list.item(i)
+                # Hide items that don't match
+                item.setHidden(text not in item.text().lower())
 
 
 # wrap list editing into a single function to prevent mistake
