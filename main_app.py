@@ -1370,7 +1370,6 @@ main_window = MainWindow()
 main_window.setWindowTitle("Money Tracker")
 main_window.setGeometry(500, 100, 790, 720)
 main_window.setFixedHeight(720)
-main_window.setFixedWidth(790)
 
 main_window.show()
 sys.exit(app.exec())
