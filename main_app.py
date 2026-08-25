@@ -1099,19 +1099,14 @@ class SummaryWindow(QWidget):
     def initUI(self):
         self.summary_type = QComboBox(self)
         self.summary_type.setStyleSheet("font-size: 18px;")
-        self.summary_type.addItem("Summarize by time with regular expenses")
-        self.summary_type.addItem("Summarize by time with non-regular expenses")
-        self.summary_type.addItem(
-            "Summarize by time while comparing regular and non-regular expenses"
-        )
-        self.summary_type.addItem("Summarize by time with all expense types")
+        self.summary_type.addItem("Summarize by time")
         self.summary_type.addItem("Summarize a trip")
 
         self.summary_type.currentTextChanged.connect(self.load_options)
 
         self.select = QComboBox(self)
         self.select.setStyleSheet("font-size: 18px;")
-        self.load_options("Summarize by time with regular expenses")
+        self.load_options("Summarize by time")
 
         self.button_summarize = QPushButton("Summarize", self)
         self.button_summarize.setStyleSheet("font-size: 18px;")
@@ -1131,12 +1126,7 @@ class SummaryWindow(QWidget):
     def load_options(self, text):
         self.select.clear()
         match text:
-            case (
-                "Summarize by time with regular expenses"
-                | "Summarize by time with non-regular expenses"
-                | "Summarize by time while comparing regular and non-regular expenses"
-                | "Summarize by time with all expense types"
-            ):
+            case "Summarize by time":
                 self.select.addItem("All time")
                 # Figure out the options of year.
                 year_list = []
@@ -1158,7 +1148,7 @@ class SummaryWindow(QWidget):
                 month_list = list(set(month_list))
                 month_list.sort()
 
-                # Add to QCombobox
+                # Add to QCombobox.
                 for month in month_list:
                     self.select.addItem(str(month % 100) + "/" + str(month // 100))
 
@@ -1168,20 +1158,16 @@ class SummaryWindow(QWidget):
                 print("Unknown summary type.")
 
     def summarize(self):
-        # Clear the previous plot to prevent overlapping lines
-        self.figure.clear()
-        # Create an axes object and plot data
-        ax = self.figure.add_subplot(111)
         print("=" * 100)
         print(self.summary_type.currentText())
         print(f"For {self.select.currentText()}:")
 
-        # select the entries to include in the summary
+        # select the entries to include in the summary.
         expense_list_for_summary = []
         match self.summary_type.currentText():
             case "Summarize a trip":
                 print("-" * 100)
-                # Create a list only containing the expenses on the trip and print it
+                # Create a list only containing the expenses on the trip and print it.
                 expense_list_for_summary = []
                 for entry in expense_list:
                     if entry.trip == self.select.currentText():
@@ -1189,41 +1175,7 @@ class SummaryWindow(QWidget):
                         print(expense_string(entry))
                 print("-" * 100)
                 print("Total spending in each category:")
-            case "Summarize by time with regular expenses":
-                if self.select.currentText() == "All time":
-                    for entry in expense_list:
-                        if entry.regular == "Regular":
-                            expense_list_for_summary.append(entry)
-                else:
-                    for entry in expense_list:
-                        if entry.regular == "Regular":
-                            date = datetime.date.fromisoformat(entry.date)
-                            date_string = str(date.month) + "/" + str(date.year)
-                            if date_string == self.select.currentText():
-                                expense_list_for_summary.append(entry)
-
-            case "Summarize by time with non-regular expenses":
-                if self.select.currentText() == "All time":
-                    for entry in expense_list:
-                        if entry.regular != "Regular":
-                            expense_list_for_summary.append(entry)
-                else:
-                    for entry in expense_list:
-                        if entry.regular != "Regular":
-                            date = datetime.date.fromisoformat(entry.date)
-                            date_string = str(date.month) + "/" + str(date.year)
-                            if date_string == self.select.currentText():
-                                expense_list_for_summary.append(entry)
-            case "Summarize by time while comparing regular and non-regular expenses":
-                if self.select.currentText() == "All time":
-                    expense_list_for_summary = expense_list
-                else:
-                    for entry in expense_list:
-                        date = datetime.date.fromisoformat(entry.date)
-                        date_string = str(date.month) + "/" + str(date.year)
-                        if date_string == self.select.currentText():
-                            expense_list_for_summary.append(entry)
-            case "Summarize by time with all expense types":
+            case "Summarize by time":
                 if self.select.currentText() == "All time":
                     expense_list_for_summary = expense_list
                 else:
@@ -1233,23 +1185,53 @@ class SummaryWindow(QWidget):
                         if date_string == self.select.currentText():
                             expense_list_for_summary.append(entry)
 
-        # Sum the spending at the last child level.
+        # Create copy so the original one is untouched.
         expense_type_copy = copy.deepcopy(expense_type)
-        for category in PreOrderIter(expense_type_copy):
-            setattr(category, "total", 0)
-            for entry in expense_list_for_summary:
-                if category.name == entry.category:
-                    category.total += entry.cost
-        # Sum the spending of subcategories into categories.
-        for category in PostOrderIter(expense_type_copy):
-            for child in category.children:
-                category.total += child.total
-            for category in PreOrderIter(expense_type_copy):
-                category.total = round(category.total, 2)
+        # Sum the spendings.
+        match self.summary_type.currentText():
+            case "Summarize a trip":
+                # Sum the spending at the last child level.
+                for category in PreOrderIter(expense_type_copy):
+                    setattr(category, "total", 0)
+                    for entry in expense_list_for_summary:
+                        if category.name == entry.category:
+                            category.total += entry.cost
+                # Sum the spending of subcategories into categories.
+                for category in PostOrderIter(expense_type_copy):
+                    for child in category.children:
+                        category.total += child.total
+                    for category in PreOrderIter(expense_type_copy):
+                        category.total = round(category.total, 2)
 
-        plot_category = []
-        plot_value = []
+            case "Summarize by time":
+                # Sum the spending at the last child level.
+                for category in PreOrderIter(expense_type_copy):
+                    setattr(category, "regular_total", 0)
+                    setattr(category, "not_regular_total", 0)
+                    for entry in expense_list_for_summary:
+                        if category.name == entry.category:
+                            if entry.regular == "Regular":
+                                category.regular_total += entry.cost
+                            else:
+                                category.not_regular_total += entry.cost
+                # Sum the spending of subcategories into categories.
+                for category in PostOrderIter(expense_type_copy):
+                    for child in category.children:
+                        category.regular_total += child.regular_total
+                        category.not_regular_total += child.not_regular_total
+
+                for category in PostOrderIter(expense_type_copy):
+                    category.regular_total = round(category.regular_total, 2)
+                    category.not_regular_total = round(category.not_regular_total, 2)
+                    setattr(
+                        category,
+                        "total",
+                        round(category.regular_total + category.not_regular_total, 2),
+                    )
+
         if self.summary_type.currentText() == "Summarize a trip":
+            plot_category = []
+            plot_value = []
             for category in PreOrderIter(expense_type_copy):
                 if category.total > 0:
                     print(
@@ -1259,40 +1241,26 @@ class SummaryWindow(QWidget):
                         plot_category.append(category.name + f" ${category.total}")
                         plot_value.append(category.total)
         else:
+            regular_category = []
+            regular_value = []
+            not_regular_category = []
+            not_regular_value = []
             print("Total spending in each category:")
 
             for category in PreOrderIter(expense_type_copy):
-                if self.select.currentText() in [
-                    "Summarize by time with regular expenses",
-                    "Summarize by time with all expense types",
-                    "Summarize by time while comparing regular and non-regular expenses",
-                ]:
-                    print(
-                        f"{len(category.ancestors) * '   '}{category.name}: ${category.total}"
+                print(
+                    f"{len(category.ancestors) * '   '}{category.name}: ${category.total}"
+                )
+
+            for child in expense_type_copy.children:
+                if child.regular_total > 0:
+                    regular_category.append(child.name + f" ${child.regular_total}")
+                    regular_value.append(child.regular_total)
+                if child.not_regular_total > 0:
+                    not_regular_category.append(
+                        child.name + f" ${child.not_regular_total}"
                     )
-                else:
-                    if category.total > 0:
-                        print(
-                            f"{len(category.ancestors) * '   '}{category.name}: ${category.total}"
-                        )
-            if (
-                self.summary_type.currentText()
-                == "Summarize by time while comparing regular and non-regular expenses"
-            ):
-                plot_category = ["Regular", "Non-regular"]
-                plot_value = [0, 0]
-                for entry in expense_list_for_summary:
-                    if entry.regular == "Regular":
-                        plot_value[0] += entry.cost
-                    else:
-                        plot_value[1] += entry.cost
-                plot_category[0] += f" ${round(plot_value[0], 2)}"
-                plot_category[1] += f" ${round(plot_value[1], 2)}"
-            else:
-                for child in expense_type_copy.children:
-                    if child.total > 0:
-                        plot_category.append(child.name + f" ${child.total}")
-                        plot_value.append(child.total)
+                    not_regular_value.append(child.not_regular_total)
 
             print("-" * 100)
             # Select income entries to summarize
@@ -1370,10 +1338,39 @@ class SummaryWindow(QWidget):
                     except NameError:
                         print(f"No {category.name} was bought.")
 
+        # Clear the previous plot to prevent overlapping lines
+        self.figure.clear()
+
         # Draw the pie charts.
-        plot_title = self.select.currentText() + f"\n${expense_type_copy.total}"
-        ax.pie(plot_value, labels=plot_category, autopct="%1.1f%%")
-        ax.set_title(plot_title)
+        match self.summary_type.currentText():
+            case "Summarize a trip":
+                # Create an axes object and plot data
+                ax = self.figure.add_subplot(111)
+                plot_title = self.select.currentText() + f"\n${expense_type_copy.total}"
+                ax.pie(plot_value, labels=plot_category, autopct="%1.1f%%")
+                ax.set_title(plot_title)
+            case "Summarize by time":
+                center_value = [sum(regular_value), sum(not_regular_value)]
+                ax1 = self.figure.add_subplot(1, 3, 1)
+                ax2 = self.figure.add_subplot(1, 3, 2)
+                ax3 = self.figure.add_subplot(1, 3, 3)
+                ax1.pie(
+                    regular_value,
+                    labels=regular_category,
+                    autopct="%1.1f%%",
+                    radius=0.7,
+                )
+                ax2.pie(center_value, autopct="%1.1f%%", startangle=90, radius=0.7)
+                ax3.pie(
+                    not_regular_value,
+                    labels=not_regular_category,
+                    autopct="%1.1f%%",
+                    radius=0.7,
+                )
+                ax1.set_title(f"Regular ${expense_type_copy.regular_total}")
+                ax2.set_title(f"Total Spending\n${expense_type_copy.total}")
+                ax3.set_title(f"Not regular ${expense_type_copy.not_regular_total}")
+
         self.canvas.draw()
 
 
