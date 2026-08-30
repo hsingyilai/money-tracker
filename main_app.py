@@ -47,22 +47,37 @@ date_now = datetime.datetime.now()
 qtoday = QDate(date_now.year, date_now.month, date_now.day)
 
 # Load the list datas.
-with open("my_expenses.json", "r") as f:
-    expense_list_data = json.load(f)
-expense_list = [ExpenseEntry(**entry) for entry in expense_list_data]
+try:
+    with open("my_expenses.json", "r") as f:
+        expense_list_data = json.load(f)
+except FileNotFoundError:
+    expense_list = []
+else:
+    expense_list = [ExpenseEntry(**entry) for entry in expense_list_data]
 
-with open("my_incomes.json", "r") as f:
-    income_list_data = json.load(f)
-income_list = [IncomeEntry(**entry) for entry in income_list_data]
+try:
+    with open("my_incomes.json", "r") as f:
+        income_list_data = json.load(f)
+except FileNotFoundError:
+    income_list = []
+else:
+    income_list = [IncomeEntry(**entry) for entry in income_list_data]
 
 
 # Load the categories.
 importer = JsonImporter()
-with open("expense_categories.json", "r") as f:
-    expense_type = importer.read(f)
+try:
+    with open("expense_categories.json", "r") as f:
+        expense_type = importer.read(f)
+except FileNotFoundError:
+    expense_type = Node("All Categories")
+    setattr(expense_type, "notes", ["note"])
 
-with open("income_categories.json", "r") as f:
-    income_type = importer.read(f)
+try:
+    with open("income_categories.json", "r") as f:
+        income_type = importer.read(f)
+except FileNotFoundError:
+    income_type = Node("All Income Types")
 
 
 # Get the trip list.
