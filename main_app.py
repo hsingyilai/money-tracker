@@ -24,7 +24,7 @@ import sys
 import json
 from anytree.importer import JsonImporter
 from anytree.exporter import JsonExporter
-from anytree import LevelOrderIter, Node, PreOrderIter, PostOrderIter
+from anytree import LevelOrderIter, Node, PreOrderIter, PostOrderIter, RenderTree
 import copy
 import datetime
 from expense_module import ExpenseEntry, IncomeEntry
@@ -159,6 +159,8 @@ class MainStack(QStackedWidget):
                 self.setCurrentIndex(0)
             case "Categories":
                 self.setCurrentIndex(1)
+                page = self.widget(1)
+                page.reload_categories()
             case "Summary":
                 self.setCurrentIndex(2)
                 page = self.widget(2)
@@ -1099,10 +1101,181 @@ class CategoriesWindow(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.expense_mode = True
+        self.switch_x = 200
+        self.switch_y = 20
         self.initUI()
 
     def initUI(self):
-        QLabel("The Categories page is under construction.", self)
+        self.init_expense_income_switch()
+        self.init_category_tree()
+        self.init_button_delete()
+
+    def init_expense_income_switch(self):
+        self.label_switch_expense = QLabel("Expense", self)
+        self.label_switch_expense.setGeometry(self.switch_x, self.switch_y, 230, 40)
+
+        self.label_switch_expense.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_switch_expense.setStyleSheet(
+            "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
+        )
+
+        self.label_switch_income = QLabel("Income", self)
+        self.label_switch_income.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
+        self.label_switch_income.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_switch_income.setStyleSheet(
+            "background-color: #ecffe6;font-size: 16px;"
+        )
+
+        self.switch = QCheckBox("", self)
+        self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
+        self.switch.setStyleSheet(
+            """
+                                  QCheckBox::indicator{
+                                  width: 90px;
+                                  height: 30px;
+                                  }
+                                  QCheckBox::indicator:checked {
+                                  image: none;
+                                background-color: none;
+                                border: none;
+                                }
+                                QCheckBox::indicator:unchecked {
+                                    background-color: none;
+                                    border: none;
+                                }
+                                """
+        )
+
+        self.switch.stateChanged.connect(self.switch_change)
+
+    def switch_change(self, state):
+        if Qt.CheckState(state) == Qt.CheckState.Checked:  # Income mode.
+            self.switch.setGeometry(self.switch_x, self.switch_y, 95, 30)
+            self.label_switch_expense.setStyleSheet(
+                "background-color: #ecffe6;font-size: 16px;"
+            )
+            self.label_switch_expense.setGeometry(self.switch_x, self.switch_y, 95, 30)
+
+            self.label_switch_income.setStyleSheet(
+                "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
+            )
+            self.label_switch_income.setGeometry(
+                self.switch_x + 95, self.switch_y, 230, 40
+            )
+            self.expense_mode = False
+            self.income_tree.setVisible(True)
+            self.expense_tree.setVisible(False)
+            self.income_tree.clearSelection()
+            self.button_delete.setDisabled(True)
+        else:  # Expense mode.
+            self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
+            self.label_switch_expense.setStyleSheet(
+                "background-color: #41e8a0;font-weight: bold;font-size: 20px;"
+            )
+            self.label_switch_expense.setGeometry(self.switch_x, self.switch_y, 230, 40)
+
+            self.label_switch_income.setStyleSheet(
+                "background-color: #ecffe6;font-size: 16px;"
+            )
+            self.label_switch_income.setGeometry(
+                self.switch_x + 230, self.switch_y, 95, 30
+            )
+            self.expense_mode = True
+            self.income_tree.setVisible(False)
+            self.expense_tree.setVisible(True)
+            self.expense_tree.clearSelection()
+            self.button_delete.setDisabled(True)
+
+    def init_category_tree(self):
+        self.expense_type_pointer = []  # Load expense categories.
+        i = 0
+        for category in LevelOrderIter(expense_type):
+            self.expense_type_pointer.append(MyTreeWidgetItem())
+            self.expense_type_pointer[-1].setText(0, category.name)
+            self.expense_type_pointer[-1].anytree_node = category
+            category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
+            i += 1
+        self.next_pointer = i  # For adding new category
+
+        # Connect the nodes in PyQt following anytree.
+        for category in LevelOrderIter(expense_type):
+            for child_category in category.children:
+                self.expense_type_pointer[category.index].addChild(
+                    self.expense_type_pointer[child_category.index]
+                )
+
+        self.expense_tree = QTreeWidget(self)
+        self.expense_tree.setStyleSheet("font-size: 18px;")
+        self.expense_tree.setColumnCount(1)
+        self.expense_tree.setGeometry(40, self.switch_y + 50, 324, 200)
+        self.expense_tree.setHeaderHidden(True)
+        self.expense_tree.addTopLevelItem(
+            self.expense_type_pointer[0]
+        )  # The 0th pointer is All Categories
+        self.expense_type_pointer[0].setExpanded(True)
+
+        self.expense_tree.itemClicked.connect(self.category_selected)
+
+        self.income_type_pointer = []  # Load income categories.
+        i = 0
+        for category in LevelOrderIter(income_type):
+            self.income_type_pointer.append(MyTreeWidgetItem())
+            self.income_type_pointer[-1].setText(0, category.name)
+            self.income_type_pointer[-1].anytree_node = category
+            category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
+            i += 1
+        self.next_income_pointer = i  # For adding new income category
+
+        # Connect the nodes in PyQt following anytree.
+        for category in LevelOrderIter(income_type):
+            for child_category in category.children:
+                self.income_type_pointer[category.index].addChild(
+                    self.income_type_pointer[child_category.index]
+                )
+
+        self.income_tree = QTreeWidget(self)
+        self.income_tree.setStyleSheet("font-size: 18px;")
+        self.income_tree.setColumnCount(1)
+        self.income_tree.setGeometry(40, self.switch_y + 50, 324, 200)
+        self.income_tree.setHeaderHidden(True)
+        self.income_tree.addTopLevelItem(self.income_type_pointer[0])
+        self.income_type_pointer[0].setExpanded(True)
+        self.income_tree.setVisible(False)
+
+        self.income_tree.itemClicked.connect(self.category_selected)
+
+    def category_selected(self, item, column):
+        if self.expense_mode:
+            if item.text(column) != "All Categories":
+                self.button_delete.setDisabled(False)
+            else:
+                self.button_delete.setDisabled(True)
+        else:
+            if item.text(column) != "All Income Types":
+                self.button_delete.setDisabled(False)
+            else:
+                self.button_delete.setDisabled(True)
+
+    def reload_categories(self):
+        print(RenderTree(expense_type).by_attr())
+        print(RenderTree(income_type).by_attr())
+
+    def init_button_delete(self):
+        self.button_delete = QPushButton("Delete", self)
+        self.button_delete.setGeometry(self.switch_x + 240, self.switch_y + 90, 120, 60)
+        self.button_delete.setStyleSheet("font-size: 20px;")
+        self.button_delete.setDisabled(True)
+
+        self.button_delete.clicked.connect(self.delete_category)
+
+    def delete_category(self):
+        self.button_delete.setDisabled(True)
+
+        if self.expense_mode:
+            self.expense_tree.clearSelection()
+        else:
+            self.income_tree.clearSelection()
 
 
 class SummaryWindow(QWidget):
