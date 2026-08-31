@@ -1258,8 +1258,49 @@ class CategoriesWindow(QWidget):
                 self.button_delete.setDisabled(True)
 
     def reload_categories(self):
-        print(RenderTree(expense_type).by_attr())
-        print(RenderTree(income_type).by_attr())
+        self.expense_tree.clear()
+        self.expense_type_pointer = []  # Load expense categories.
+        i = 0
+        for category in LevelOrderIter(expense_type):
+            self.expense_type_pointer.append(MyTreeWidgetItem())
+            self.expense_type_pointer[-1].setText(0, category.name)
+            self.expense_type_pointer[-1].anytree_node = category
+            category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
+            i += 1
+        self.next_pointer = i  # For adding new category
+
+        # Connect the nodes in PyQt following anytree.
+        for category in LevelOrderIter(expense_type):
+            for child_category in category.children:
+                self.expense_type_pointer[category.index].addChild(
+                    self.expense_type_pointer[child_category.index]
+                )
+
+        self.expense_tree.addTopLevelItem(
+            self.expense_type_pointer[0]
+        )  # The 0th pointer is All Categories
+        self.expense_type_pointer[0].setExpanded(True)
+
+        self.income_tree.clear()
+        self.income_type_pointer = []  # Load income categories.
+        i = 0
+        for category in LevelOrderIter(income_type):
+            self.income_type_pointer.append(MyTreeWidgetItem())
+            self.income_type_pointer[-1].setText(0, category.name)
+            self.income_type_pointer[-1].anytree_node = category
+            category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
+            i += 1
+        self.next_income_pointer = i  # For adding new income category
+
+        # Connect the nodes in PyQt following anytree.
+        for category in LevelOrderIter(income_type):
+            for child_category in category.children:
+                self.income_type_pointer[category.index].addChild(
+                    self.income_type_pointer[child_category.index]
+                )
+
+        self.income_tree.addTopLevelItem(self.income_type_pointer[0])
+        self.income_type_pointer[0].setExpanded(True)
 
     def init_button_delete(self):
         self.button_delete = QPushButton("Delete", self)
@@ -1271,6 +1312,38 @@ class CategoriesWindow(QWidget):
 
     def delete_category(self):
         self.button_delete.setDisabled(True)
+
+        # Update the anytree cateogry tree
+        if self.expense_mode:
+            current_category = self.expense_tree.currentItem().anytree_node
+
+            # Update the entries in the deleted category
+            parent_name = current_category.parent.name
+            for entry in expense_list:
+                if entry.category == current_category.name:
+                    entry.category = parent_name
+
+            current_category.parent = None
+
+            # Update the PyQt tree
+            current_item = self.expense_tree.currentItem()
+            parent = current_item.parent()
+            parent.removeChild(current_item)
+        else:
+            current_category = self.income_tree.currentItem().anytree_node
+
+            # Update the entries in the deleted category
+            parent_name = current_category.parent.name
+            for entry in income_list:
+                if entry.category == current_category.name:
+                    entry.category = parent_name
+
+            current_category.parent = None
+
+            # Update the PyQt tree
+            current_item = self.income_tree.currentItem()
+            parent = current_item.parent()
+            parent.removeChild(current_item)
 
         if self.expense_mode:
             self.expense_tree.clearSelection()
@@ -1294,12 +1367,13 @@ class SummaryWindow(QWidget):
 
         self.select = QComboBox(self)
         self.select.setStyleSheet("font-size: 18px;")
-        self.load_options("Summarize by time")
 
         self.button_summarize = QPushButton("Summarize", self)
         self.button_summarize.setStyleSheet("font-size: 18px;")
 
         self.button_summarize.clicked.connect(self.summarize)
+
+        self.load_options("Summarize by time")
 
         self.figure = Figure()
         self.canvas = FigureCanvas(self.figure)
@@ -1344,6 +1418,11 @@ class SummaryWindow(QWidget):
                 self.select.addItems(trip_list)
             case _:
                 print("Unknown summary type.")
+
+        if self.select.count() == 0:
+            self.button_summarize.setDisabled(True)
+        else:
+            self.button_summarize.setDisabled(False)
 
     def summarize(self):
         print("=" * 100)
@@ -1542,22 +1621,34 @@ class SummaryWindow(QWidget):
                 ax1 = self.figure.add_subplot(1, 3, 1)
                 ax2 = self.figure.add_subplot(1, 3, 2)
                 ax3 = self.figure.add_subplot(1, 3, 3)
-                ax1.pie(
-                    regular_value,
-                    labels=regular_category,
-                    autopct="%1.1f%%",
-                    radius=0.7,
-                )
-                ax2.pie(center_value, autopct="%1.1f%%", startangle=90, radius=0.7)
-                ax3.pie(
-                    not_regular_value,
-                    labels=not_regular_category,
-                    autopct="%1.1f%%",
-                    radius=0.7,
-                )
-                ax1.set_title(f"Regular ${expense_type_copy.regular_total}")
-                ax2.set_title(f"Total Spending\n${expense_type_copy.total}")
-                ax3.set_title(f"Not regular ${expense_type_copy.not_regular_total}")
+                try:
+                    ax1.pie(
+                        regular_value,
+                        labels=regular_category,
+                        autopct="%1.1f%%",
+                        radius=0.7,
+                    )
+                except ValueError:
+                    print("No regular expenses.")
+                else:
+                    ax1.set_title(f"Regular ${expense_type_copy.regular_total}")
+                try:
+                    ax2.pie(center_value, autopct="%1.1f%%", startangle=90, radius=0.7)
+                except ValueError:
+                    print("No expenses.")
+                else:
+                    ax2.set_title(f"Total Spending\n${expense_type_copy.total}")
+                try:
+                    ax3.pie(
+                        not_regular_value,
+                        labels=not_regular_category,
+                        autopct="%1.1f%%",
+                        radius=0.7,
+                    )
+                except ValueError:
+                    print("No non-regular expenses.")
+                else:
+                    ax3.set_title(f"Not regular ${expense_type_copy.not_regular_total}")
 
         self.canvas.draw()
 
