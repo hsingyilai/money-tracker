@@ -157,6 +157,8 @@ class MainStack(QStackedWidget):
         match function:
             case "Input":
                 self.setCurrentIndex(0)
+                page = self.widget(0)
+                page.refresh()
             case "Categories":
                 self.setCurrentIndex(1)
                 page = self.widget(1)
@@ -746,9 +748,12 @@ class InputWindow(QWidget):
         self.new_category.clear()
         self.add_category.setEnabled(False)
         if self.expense_mode:
-            self.expense_notes.assign_content(
-                self.expense_tree.currentItem().anytree_node.notes
-            )
+            try:
+                self.expense_notes.assign_content(
+                    self.expense_tree.currentItem().anytree_node.notes
+                )
+            except AttributeError:
+                pass
 
     def init_add_subcategory(self):
         self.new_category = QLineEdit(self)
@@ -1025,6 +1030,63 @@ class InputWindow(QWidget):
                 item = self.list.item(i)
                 # Hide items that don't match
                 item.setHidden(text not in item.text().lower())
+
+    def refresh(self):
+        # Reload categories.
+        self.expense_tree.clear()
+        self.expense_type_pointer = []  # Load expense categories.
+        i = 0
+        for category in LevelOrderIter(expense_type):
+            self.expense_type_pointer.append(MyTreeWidgetItem())
+            self.expense_type_pointer[-1].setText(0, category.name)
+            self.expense_type_pointer[-1].anytree_node = category
+            category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
+            i += 1
+        self.next_pointer = i  # For adding new category
+
+        # Connect the nodes in PyQt following anytree.
+        for category in LevelOrderIter(expense_type):
+            for child_category in category.children:
+                self.expense_type_pointer[category.index].addChild(
+                    self.expense_type_pointer[child_category.index]
+                )
+
+        self.expense_tree.addTopLevelItem(
+            self.expense_type_pointer[0]
+        )  # The 0th pointer is All Categories
+
+        self.income_tree.clear()
+        self.income_type_pointer = []  # Load income categories.
+        i = 0
+        for category in LevelOrderIter(income_type):
+            self.income_type_pointer.append(MyTreeWidgetItem())
+            self.income_type_pointer[-1].setText(0, category.name)
+            self.income_type_pointer[-1].anytree_node = category
+            category.index = i  # Points from the anytree.Node to the QTreeWidgetItem
+            i += 1
+        self.next_income_pointer = i  # For adding new income category
+
+        # Connect the nodes in PyQt following anytree.
+        for category in LevelOrderIter(income_type):
+            for child_category in category.children:
+                self.income_type_pointer[category.index].addChild(
+                    self.income_type_pointer[child_category.index]
+                )
+
+        self.income_tree.addTopLevelItem(self.income_type_pointer[0])
+
+        self.expense_tree.setCurrentItem(self.expense_type_pointer[0])
+        self.expense_type_pointer[0].setExpanded(True)
+
+        self.income_tree.setCurrentItem(self.income_type_pointer[0])
+        self.income_type_pointer[0].setExpanded(True)
+
+        # Reload the list.
+        self.list.clear()
+        if self.expense_mode:
+            self.list.addItems(expense_to_Qstring(expense_list))
+        else:
+            self.list.addItems(income_to_Qstring(income_list))
 
 
 # wrap list editing into a single function to prevent mistake
