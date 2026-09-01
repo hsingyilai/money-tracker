@@ -159,6 +159,7 @@ class MainStack(QStackedWidget):
                 self.setCurrentIndex(0)
                 page = self.widget(0)
                 page.refresh()
+                page.button_delete.setDisabled(True)
             case "Categories":
                 self.setCurrentIndex(1)
                 page = self.widget(1)
@@ -1003,6 +1004,7 @@ class InputWindow(QWidget):
         self.list.clearSelection()
         self.index_selected = None
         self.button_add_back.setDisabled(False)
+        self.button_delete.setDisabled(True)
 
     def add_back(self):
         if self.expense_mode:
