@@ -24,7 +24,7 @@ import sys
 import json
 from anytree.importer import JsonImporter
 from anytree.exporter import JsonExporter
-from anytree import LevelOrderIter, Node, PreOrderIter, PostOrderIter, RenderTree
+from anytree import LevelOrderIter, Node, PreOrderIter, PostOrderIter
 import copy
 import datetime
 from expense_module import ExpenseEntry, IncomeEntry
@@ -993,11 +993,51 @@ class InputWindow(QWidget):
     def list_clicked(self, item):
         self.index_selected = self.list.row(item)
         self.button_delete.setDisabled(False)
+        if self.expense_mode:
+            selected_entry = expense_list[len(expense_list) - 1 - self.index_selected]
+            self.calender.setDate(QDate.fromString(selected_entry.date, "yyyy-MM-dd"))
+            self.amount.setText(str(selected_entry.cost))
+            match selected_entry.regular:
+                case "Regular":
+                    self.irregular.setGeometry(260, 128, 110, 40)
+                    self.irregular.setEditable(False)
+                    self.spin_period.setVisible(False)
+                    self.label_month.setVisible(False)
+                    if self.irregular.count() == 2:
+                        self.irregular.addItem("Regular but not monthly")
+                    self.irregular.setCurrentIndex(0)
+                case "Irregular":
+                    self.irregular.setGeometry(260, 128, 110, 40)
+                    self.irregular.setEditable(False)
+                    self.spin_period.setVisible(False)
+                    self.label_month.setVisible(False)
+                    if self.irregular.count() == 2:
+                        self.irregular.addItem("Regular but not monthly")
+                    self.irregular.setCurrentIndex(1)
+                case _:
+                    self.irregular.setGeometry(260, 114, 110, 40)
+                    self.irregular.removeItem(2)
+                    self.irregular.setCurrentIndex(-1)
+                    self.spin_period.setVisible(True)
+                    self.label_month.setVisible(True)
+            for category in PreOrderIter(expense_type):
+                if category.name == selected_entry.category:
+                    self.expense_tree.setCurrentItem(
+                        self.expense_type_pointer[category.index]
+                    )
+            self.trip_selector.setCurrentIndex(-1)
+            for i in range(self.trip_selector.count()):
+                if self.trip_selector.itemText(i) == selected_entry.trip:
+                    self.trip_selector.setCurrentIndex(i)
+        else:
+            pass
 
     def new_entry(self):
         self.list.clearSelection()
         self.index_selected = None
         self.button_delete.setDisabled(True)
+        self.trip_selector.setCurrentIndex(-1)
+        self.amount.clear()
 
     def delete_entry(self):
         list_remove(self)
