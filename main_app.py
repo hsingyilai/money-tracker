@@ -1708,6 +1708,8 @@ class SummaryWindow(QWidget):
                         )
                     except NameError:
                         print(f"No {category.name} was bought.")
+                    else:
+                        del cheapest_index
 
         # Clear the previous plot to prevent overlapping lines
         self.figure.clear()
