@@ -76,291 +76,75 @@ def save_data():
 
 
 # Main Window
+PAGES = ["Input", "Categories", "Summary", "Periodic Expenses"]
+
+
+class NavBar(QWidget):
+    """The bottom bar of page buttons. Emits navigate(name) when one is clicked."""
+
+    navigate = pyqtSignal(str)
+
+    def __init__(self, pages):
+        super().__init__()
+        self._buttons = {}
+        hbox = QHBoxLayout(self)
+        hbox.setContentsMargins(0, 0, 0, 0)
+        for name in pages:
+            button = QPushButton(name)
+            button.clicked.connect(lambda _, n=name: self.navigate.emit(n))
+            hbox.addWidget(button)
+            self._buttons[name] = button
+        self.set_active(pages[0])
+
+    def set_active(self, active_name):
+        for name, button in self._buttons.items():
+            if name == active_name:
+                button.setStyleSheet(styles.NAV_TITLE_LABEL)
+                button.setFixedHeight(60)
+            else:
+                button.setStyleSheet(styles.NAV_BUTTON)
+                button.setFixedHeight(50)
+
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
 
-        main_display = MainStack()
-        switch = FunctionSwitch()
+        self.pages = QStackedWidget()
+        self._page_by_name = {
+            "Input": InputWindow(),
+            "Categories": CategoriesWindow(),
+            "Summary": SummaryWindow(),
+            "Periodic Expenses": PeriodicWindow(),
+        }
+        for widget in self._page_by_name.values():
+            self.pages.addWidget(widget)
 
-        vbox = QVBoxLayout()
-        vbox.addWidget(main_display, stretch=12)
-        vbox.addWidget(switch, stretch=1)
+        self.nav = NavBar(PAGES)
+        self.nav.navigate.connect(self.show_page)
 
-        self.setLayout(vbox)
+        vbox = QVBoxLayout(self)
+        vbox.addWidget(self.pages, stretch=12)
+        vbox.addWidget(self.nav, stretch=1)
 
-        switch.function_change.connect(main_display.set_function)
+    def show_page(self, name):
+        page = self._page_by_name[name]
+        self.pages.setCurrentWidget(page)
+        self.nav.set_active(name)
+
+        # Per-page refresh when it comes to the front.
+        if name == "Input":
+            page.refresh()
+            page.button_delete.setDisabled(True)
+        elif name == "Categories":
+            page.reload_categories()
+        elif name == "Summary":
+            page.load_options(page.summary_type.currentText())
 
     def closeEvent(self, event):
         save_data()
         event.accept()
         super().closeEvent(event)
-
-
-# Custom Widgets for the main window
-class MainStack(QStackedWidget):
-    def __init__(self):
-        super().__init__()
-
-        self.initUI()
-
-    def initUI(self):
-        window_input = InputWindow()
-        window_categories = CategoriesWindow()
-        window_summary = SummaryWindow()
-        window_periodic = PeriodicWindow()
-
-        self.addWidget(window_input)
-        self.addWidget(window_categories)
-        self.addWidget(window_summary)
-        self.addWidget(window_periodic)
-
-    def set_function(self, function):
-        match function:
-            case "Input":
-                self.setCurrentIndex(0)
-                page = self.widget(0)
-                page.refresh()
-                page.button_delete.setDisabled(True)
-            case "Categories":
-                self.setCurrentIndex(1)
-                page = self.widget(1)
-                page.reload_categories()
-            case "Summary":
-                self.setCurrentIndex(2)
-                page = self.widget(2)
-                page.load_options(page.summary_type.currentText())
-            case "Periodic Expenses":
-                self.setCurrentIndex(3)
-
-
-class FunctionSwitch(QStackedWidget):
-    function_change = pyqtSignal(str)
-
-    def __init__(self):
-        super().__init__()
-
-        self.initUI()
-
-    def initUI(self):
-        input_mode = InputMode()
-        categories_mode = CategoriesMode()
-        summary_mode = SummaryMode()
-        periodic_mode = PeriodicMode()
-
-        self.addWidget(input_mode)
-        self.addWidget(categories_mode)
-        self.addWidget(summary_mode)
-        self.addWidget(periodic_mode)
-
-        input_mode.mode_change.connect(self.set_function)
-        categories_mode.mode_change.connect(self.set_function)
-        summary_mode.mode_change.connect(self.set_function)
-        periodic_mode.mode_change.connect(self.set_function)
-
-    def set_function(self, function):
-        self.function_change.emit(function)
-        match function:
-            case "Input":
-                self.setCurrentIndex(0)
-            case "Categories":
-                self.setCurrentIndex(1)
-            case "Summary":
-                self.setCurrentIndex(2)
-            case "Periodic Expenses":
-                self.setCurrentIndex(3)
-
-
-class InputMode(QWidget):
-    mode_change = pyqtSignal(str)
-
-    def __init__(self):
-        super().__init__()
-
-        self.initUI()
-
-    def initUI(self):
-        label_input = QLabel("Input", self)
-        label_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label_input.setStyleSheet(
-            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
-        )
-        label_input.setFixedHeight(60)
-
-        button_categories = QPushButton("Categories", self)
-        button_categories.setStyleSheet("font-size: 18px;")
-        button_categories.clicked.connect(self.go_to_categories)
-        button_categories.setFixedHeight(50)
-
-        button_summary = QPushButton("Summary", self)
-        button_summary.setStyleSheet("font-size: 18px;")
-        button_summary.clicked.connect(self.go_to_summary)
-        button_summary.setFixedHeight(50)
-
-        button_periodic = QPushButton("Periodic Expenses", self)
-        button_periodic.setStyleSheet("font-size: 18px;")
-        button_periodic.clicked.connect(self.go_to_periodic)
-        button_periodic.setFixedHeight(50)
-
-        hbox = QHBoxLayout()
-        hbox.addWidget(label_input)
-        hbox.addWidget(button_categories)
-        hbox.addWidget(button_summary)
-        hbox.addWidget(button_periodic)
-        self.setLayout(hbox)
-
-    def go_to_categories(self):
-        self.mode_change.emit("Categories")
-
-    def go_to_summary(self):
-        self.mode_change.emit("Summary")
-
-    def go_to_periodic(self):
-        self.mode_change.emit("Periodic Expenses")
-
-
-class CategoriesMode(QWidget):
-    mode_change = pyqtSignal(str)
-
-    def __init__(self):
-        super().__init__()
-
-        self.initUI()
-
-    def initUI(self):
-        button_input = QPushButton("Input", self)
-        button_input.setStyleSheet("font-size: 18px;")
-        button_input.clicked.connect(self.go_to_input)
-        button_input.setFixedHeight(50)
-
-        label_categories = QLabel("Categories", self)
-        label_categories.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label_categories.setStyleSheet(
-            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
-        )
-        label_categories.setFixedHeight(60)
-
-        button_summary = QPushButton("Summary", self)
-        button_summary.setStyleSheet("font-size: 18px;")
-        button_summary.clicked.connect(self.go_to_summary)
-        button_summary.setFixedHeight(50)
-
-        button_periodic = QPushButton("Periodic Expenses", self)
-        button_periodic.setStyleSheet("font-size: 18px;")
-        button_periodic.clicked.connect(self.go_to_periodic)
-        button_periodic.setFixedHeight(50)
-
-        hbox = QHBoxLayout()
-        hbox.addWidget(button_input)
-        hbox.addWidget(label_categories)
-        hbox.addWidget(button_summary)
-        hbox.addWidget(button_periodic)
-        self.setLayout(hbox)
-
-    def go_to_input(self):
-        self.mode_change.emit("Input")
-
-    def go_to_summary(self):
-        self.mode_change.emit("Summary")
-
-    def go_to_periodic(self):
-        self.mode_change.emit("Periodic Expenses")
-
-
-class SummaryMode(QWidget):
-    mode_change = pyqtSignal(str)
-
-    def __init__(self):
-        super().__init__()
-
-        self.initUI()
-
-    def initUI(self):
-        button_input = QPushButton("Input", self)
-        button_input.setStyleSheet("font-size: 18px;")
-        button_input.clicked.connect(self.go_to_input)
-        button_input.setFixedHeight(50)
-
-        button_categories = QPushButton("Categories", self)
-        button_categories.setStyleSheet("font-size: 18px;")
-        button_categories.clicked.connect(self.go_to_categories)
-        button_categories.setFixedHeight(50)
-
-        label_summary = QLabel("Summary", self)
-        label_summary.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label_summary.setStyleSheet(
-            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
-        )
-        label_summary.setFixedHeight(60)
-
-        button_periodic = QPushButton("Periodic Expenses", self)
-        button_periodic.setStyleSheet("font-size: 18px;")
-        button_periodic.clicked.connect(self.go_to_periodic)
-        button_periodic.setFixedHeight(50)
-
-        hbox = QHBoxLayout()
-        hbox.addWidget(button_input)
-        hbox.addWidget(button_categories)
-        hbox.addWidget(label_summary)
-        hbox.addWidget(button_periodic)
-        self.setLayout(hbox)
-
-    def go_to_input(self):
-        self.mode_change.emit("Input")
-
-    def go_to_categories(self):
-        self.mode_change.emit("Categories")
-
-    def go_to_periodic(self):
-        self.mode_change.emit("Periodic Expenses")
-
-
-class PeriodicMode(QWidget):
-    mode_change = pyqtSignal(str)
-
-    def __init__(self):
-        super().__init__()
-
-        self.initUI()
-
-    def initUI(self):
-        button_input = QPushButton("Input", self)
-        button_input.setStyleSheet("font-size: 18px;")
-        button_input.clicked.connect(self.go_to_input)
-        button_input.setFixedHeight(50)
-
-        button_categories = QPushButton("Categories", self)
-        button_categories.setStyleSheet("font-size: 18px;")
-        button_categories.clicked.connect(self.go_to_categories)
-        button_categories.setFixedHeight(50)
-
-        button_summary = QPushButton("Summary", self)
-        button_summary.setStyleSheet("font-size: 18px;")
-        button_summary.clicked.connect(self.go_to_summary)
-        button_summary.setFixedHeight(50)
-
-        label_periodic = QLabel("Periodic Expenses", self)
-        label_periodic.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        label_periodic.setStyleSheet(
-            "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
-        )
-        label_periodic.setFixedHeight(60)
-
-        hbox = QHBoxLayout()
-        hbox.addWidget(button_input)
-        hbox.addWidget(button_categories)
-        hbox.addWidget(button_summary)
-        hbox.addWidget(label_periodic)
-        self.setLayout(hbox)
-
-    def go_to_input(self):
-        self.mode_change.emit("Input")
-
-    def go_to_categories(self):
-        self.mode_change.emit("Categories")
-
-    def go_to_summary(self):
-        self.mode_change.emit("Summary")
 
 
 # Custom widgets for stacked child-windows in the main window.
