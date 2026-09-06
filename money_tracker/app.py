@@ -616,7 +616,11 @@ class InputWindow(QWidget):
                 if self.trip_selector.itemText(i) == selected_entry.trip:
                     self.trip_selector.setCurrentIndex(i)
         else:
-            pass
+            selected_entry = income_list[len(income_list) - 1 - self.index_selected]
+            self.calender.setDate(QDate.fromString(selected_entry.date, "yyyy-MM-dd"))
+            self.amount.setText(str(selected_entry.amount))
+            self.income_tree.select_by_name(selected_entry.category)
+            self.income_note_entry.setText(selected_entry.note)
 
     def new_entry(self):
         self.list.clearSelection()
