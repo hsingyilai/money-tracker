@@ -8,6 +8,9 @@ SWITCH_LABEL_INACTIVE = "background-color: #ecffe6;font-size: 16px;"
 NAV_TITLE_LABEL = "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
 NAV_BUTTON = "font-size: 18px;"
 
+# Category tree widgets.
+TREE_WIDGET = "font-size: 18px;"
+
 # The borderless slider look for the QCheckBox used as an on/off switch.
 TOGGLE_CHECKBOX = """
     QCheckBox::indicator {
