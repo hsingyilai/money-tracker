@@ -625,6 +625,13 @@ class InputWindow(QWidget):
         self.trip_selector.setCurrentIndex(-1)
         self.amount.clear()
 
+        # Clear the note fields but keep the selected category: rebuilding
+        # the rows for the current category gives blank fields.
+        node = self.expense_tree.current_node()
+        if node is not None and hasattr(node, "notes"):
+            self.expense_notes.assign_content(node.notes)
+        self.income_note_entry.clear()
+
     def delete_entry(self):
         list_remove(self)
         self.list.clearSelection()
