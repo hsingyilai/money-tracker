@@ -184,6 +184,22 @@ class ScrollableFormApp(QWidget):
             entry.setStyleSheet("font-size: 16px;")
             self.form_layout.addRow(label, entry)
 
+    def fill_values(self, values: dict) -> None:
+        """Fill the note fields from a {label: value} mapping.
+
+        Labels with no matching key are cleared, and keys with no matching
+        field are ignored - the same rule ``list_add`` uses when reading
+        the form back.
+        """
+        for row in range(self.form_layout.rowCount()):
+            label_item = self.form_layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            field_item = self.form_layout.itemAt(row, QFormLayout.ItemRole.FieldRole)
+            if label_item is None or field_item is None:
+                continue
+            field = field_item.widget()
+            if isinstance(field, QLineEdit):
+                field.setText(str(values.get(label_item.widget().text(), "")))
+
     def init_add_note(self):
         # For adding new notes for new subcategory
         self.new_note = QLineEdit()
@@ -587,6 +603,14 @@ class InputWindow(QWidget):
                     self.spin_period.setVisible(True)
                     self.label_month.setVisible(True)
             self.expense_tree.select_by_name(selected_entry.category)
+            # Auto-fill the note fields from the selected entry. Rebuild the
+            # rows for the entry's category first so any leftover edits are
+            # cleared, then drop in the stored values.
+            node = self.expense_tree.current_node()
+            if node is not None and hasattr(node, "notes"):
+                self.expense_notes.assign_content(node.notes)
+            self.expense_notes.fill_values(selected_entry.notes)
+
             self.trip_selector.setCurrentIndex(-1)
             for i in range(self.trip_selector.count()):
                 if self.trip_selector.itemText(i) == selected_entry.trip:
