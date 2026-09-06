@@ -1,0 +1,4 @@
+anytree>=2.13
+matplotlib>=3.11
+Pint>=0.25
+PyQt6>=6.11

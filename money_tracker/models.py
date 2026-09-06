@@ -1,10 +1,8 @@
-# This script has all the classes defined for this project.
+"""Data classes for the entries stored by the app."""
 
 
 class IncomeEntry:
-    """An entry to the income list
-
-    This class is the skeleton for recording an income
+    """An entry to the income list.
 
     Attributes:
         date: A datetime.date object converted to string in standard ISO format, such as "2026-07-23".
@@ -21,9 +19,7 @@ class IncomeEntry:
 
 
 class ExpenseEntry:
-    """An entry to the expense list
-
-    This class is the skeleton for recording an expense
+    """An entry to the expense list.
 
     Attributes:
         date: A datetime.date object converted to string in standard ISO format, such as "2026-07-23".
