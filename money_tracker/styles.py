@@ -60,16 +60,28 @@ SUBMIT_BUTTON = """
     }
 """
 
-LIST_WIDGET = """
-    QListWidget {
+# Green used to highlight a selected row / date.
+SELECTION_GREEN = "#589453"
+
+LIST_WIDGET = f"""
+    QListWidget {{
         font-size: 18px;
-    }
-    QListWidget::item {
+    }}
+    QListWidget::item {{
         border-bottom: 2px solid gray;
         padding: 5px;
-    }
-    QListWidget::item:selected {
-        background: #589453;
+    }}
+    QListWidget::item:selected {{
+        background: {SELECTION_GREEN};
         border: 2px solid #2b4d28;
-    }
+    }}
+"""
+
+# Make the calendar's selected day use the same green instead of the
+# default grey highlight.
+CALENDAR = f"""
+    QCalendarWidget QAbstractItemView:enabled {{
+        selection-background-color: {SELECTION_GREEN};
+        selection-color: white;
+    }}
 """

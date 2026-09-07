@@ -368,6 +368,7 @@ class InputWindow(QWidget):
         self.calender = QCalendarWidget(self)
         self.calender.setGeometry(12, 78, self.switch_x - 24, 200)
         self.calender.setGridVisible(True)
+        self.calender.setStyleSheet(styles.CALENDAR)
         self.calender.setSelectedDate(qtoday)
 
         self.label_date = QLabel("Date:", self)
