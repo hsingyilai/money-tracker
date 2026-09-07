@@ -401,7 +401,7 @@ class InputWindow(QWidget):
         # Windows draws wider up/down buttons and right-aligns the text, so a
         # 50px box hides the digits behind the buttons. Give it more room and
         # left-align the number.
-        self.spin_period.setGeometry(260, 145, 70, 30)
+        self.spin_period.setGeometry(250, 145, 80, 30)
         self.spin_period.setStyleSheet("font-size: 12px;")
         self.spin_period.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.spin_period.setMinimum(2)
@@ -644,6 +644,15 @@ class InputWindow(QWidget):
         if node is not None and hasattr(node, "notes"):
             self.expense_notes.assign_content(node.notes)
         self.income_note_entry.clear()
+
+        # Reset the period selector back to "Regular".
+        self.irregular.setGeometry(260, 128, 110, 40)
+        self.irregular.setEditable(False)
+        self.spin_period.setVisible(False)
+        self.label_month.setVisible(False)
+        if self.irregular.count() == 2:
+            self.irregular.addItem("Regular but not monthly")
+        self.irregular.setCurrentIndex(0)
 
     def delete_entry(self):
         list_remove(self)
