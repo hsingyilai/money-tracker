@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QComboBox,
     QSpinBox,
+    QStyleFactory,
 )
 from PyQt6.QtCore import QDate, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QDoubleValidator, QPalette
@@ -384,12 +385,22 @@ class InputWindow(QWidget):
 
     def _recolor_calendar_selection(self):
         """Make the selected day green (matching the entry list) instead of
-        the default grey. The native Windows style ignores a descendant
-        stylesheet on the QCalendarWidget, so style the inner view directly
-        and override its palette as a fallback."""
+        the default grey.
+
+        The native Windows 11 style paints the selected cell itself and
+        ignores both a stylesheet and a palette override, so switch the
+        calendar to the Fusion style (which honours them) and then set the
+        green via the inner view's palette and stylesheet.
+        """
         view = self.calender.findChild(QAbstractItemView, "qt_calendar_calendarview")
         if view is None:
             return
+
+        # Kept as an attribute so the QStyle object outlives this call.
+        self._calendar_style = QStyleFactory.create("Fusion")
+        if self._calendar_style is not None:
+            view.setStyle(self._calendar_style)
+
         view.setStyleSheet(styles.CALENDAR_VIEW)
         palette = view.palette()
         palette.setColor(QPalette.ColorRole.Highlight, QColor(styles.SELECTION_GREEN))
