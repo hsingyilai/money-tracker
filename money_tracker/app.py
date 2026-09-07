@@ -78,6 +78,10 @@ def save_data():
 # Main Window
 PAGES = ["Input", "Categories", "Summary", "Periodic Expenses"]
 
+# Horizontal shift applied to the Input page so the widened window grows
+# to the left of the centred input fields.
+INPUT_SHIFT = 263
+
 
 class NavBar(QWidget):
     """The bottom bar of page buttons. Emits navigate(name) when one is clicked."""
@@ -261,7 +265,10 @@ class InputWindow(QWidget):
         self.expense_mode = True
 
     def initUI(self):
-        self.switch_x = 40
+        # The input-field column and the entry list are positioned relative
+        # to these anchors so the window can be widened by moving them.
+        self.switch_x = 40 + INPUT_SHIFT
+        self.list_x = 380 + INPUT_SHIFT
         self.switch_y = 30
         self.index_selected = None  # The index of selected entry on the list
         self.init_expense_income_switch()
@@ -356,16 +363,16 @@ class InputWindow(QWidget):
 
     def init_select_date(self):
         self.calender = QDateEdit(self)
-        self.calender.setGeometry(90, 80, 200, 40)
+        self.calender.setGeometry(self.switch_x + 50, 80, 200, 40)
         self.calender.setDate(qtoday)
         self.calender.setStyleSheet("font-size: 20px;")
 
         self.label_date = QLabel("Date:", self)
-        self.label_date.setGeometry(40, 80, 50, 40)
+        self.label_date.setGeometry(self.switch_x, 80, 50, 40)
         self.label_date.setStyleSheet("font-size: 20px;")
 
         self.button_today = QPushButton("Today", self)
-        self.button_today.setGeometry(295, 80, 70, 40)
+        self.button_today.setGeometry(self.switch_x + 255, 80, 70, 40)
         self.button_today.setStyleSheet("font-size: 16px;")
 
         self.button_today.clicked.connect(self.set_today)
@@ -375,11 +382,11 @@ class InputWindow(QWidget):
 
     def init_amount(self):
         self.label_amount = QLabel("Expense: $", self)
-        self.label_amount.setGeometry(40, 130, 100, 35)
+        self.label_amount.setGeometry(self.switch_x, 130, 100, 35)
         self.label_amount.setStyleSheet("font-size: 20px;")
 
         self.amount = QLineEdit(self)
-        self.amount.setGeometry(140, 128, 110, 40)
+        self.amount.setGeometry(self.switch_x + 100, 128, 110, 40)
         self.amount.setPlaceholderText("0.00")
         self.amount.setStyleSheet("font-size: 20px;")
         validator = QDoubleValidator(0.00, 999999.99, 2, self)
@@ -388,7 +395,7 @@ class InputWindow(QWidget):
 
     def init_irregular(self):
         self.irregular = QComboBox(self)
-        self.irregular.setGeometry(260, 128, 110, 40)
+        self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
         self.irregular.setStyleSheet("font-size: 18px;")
         self.irregular.addItem("Regular")
         self.irregular.addItem("Irregular")
@@ -401,26 +408,26 @@ class InputWindow(QWidget):
         # Windows draws wider up/down buttons and right-aligns the text, so a
         # 50px box hides the digits behind the buttons. Give it more room and
         # left-align the number.
-        self.spin_period.setGeometry(250, 145, 80, 30)
+        self.spin_period.setGeometry(self.switch_x + 210, 145, 80, 30)
         self.spin_period.setStyleSheet("font-size: 12px;")
         self.spin_period.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.spin_period.setMinimum(2)
         self.spin_period.setMaximum(999)
         self.spin_period.setVisible(False)
         self.label_month = QLabel("months", self)
-        self.label_month.setGeometry(336, 148, 44, 28)
+        self.label_month.setGeometry(self.switch_x + 296, 148, 44, 28)
         self.label_month.setStyleSheet("font-size: 13px;")
         self.label_month.setVisible(False)
 
     def irregular_clicked(self, index):
         if index == 2:
-            self.irregular.setGeometry(260, 114, 110, 40)
+            self.irregular.setGeometry(self.switch_x + 220, 114, 110, 40)
             self.irregular.removeItem(2)
             self.irregular.setCurrentIndex(-1)
             self.spin_period.setVisible(True)
             self.label_month.setVisible(True)
         else:
-            self.irregular.setGeometry(260, 128, 110, 40)
+            self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
             self.irregular.setEditable(False)
             self.spin_period.setVisible(False)
             self.label_month.setVisible(False)
@@ -522,7 +529,7 @@ class InputWindow(QWidget):
 
     def init_button_submit(self):
         self.button_submit = QPushButton("Submit", self)
-        self.button_submit.setGeometry(40, 535, 325, 50)
+        self.button_submit.setGeometry(self.switch_x, 535, 325, 50)
         self.button_submit.setStyleSheet(styles.SUBMIT_BUTTON)
 
         self.button_submit.clicked.connect(self.submit_entry)
@@ -543,35 +550,35 @@ class InputWindow(QWidget):
 
     def init_list(self):
         self.label_find = QLabel("Find:", self)
-        self.label_find.setGeometry(380, 30, 40, 30)
+        self.label_find.setGeometry(self.list_x, 30, 40, 30)
         self.label_find.setStyleSheet("font-size: 18px;")
 
         self.text_find = QLineEdit(self)
-        self.text_find.setGeometry(425, 30, 285, 30)
+        self.text_find.setGeometry(self.list_x + 45, 30, 285, 30)
         self.text_find.setStyleSheet("font-size: 18px;")
         self.text_find.textChanged.connect(self.filter_list)
 
         self.list = QListWidget(self)
-        self.list.setGeometry(380, 65, 330, 475)
+        self.list.setGeometry(self.list_x, 65, 330, 475)
         self.list.addItems(expense_to_Qstring(expense_list))
         self.list.setStyleSheet(styles.LIST_WIDGET)
         self.list.itemClicked.connect(self.list_clicked)
 
         self.button_add_back = QPushButton("Add back", self)
         self.button_add_back.setStyleSheet(styles.SMALL_BUTTON)
-        self.button_add_back.setGeometry(385, 550, 100, 30)
+        self.button_add_back.setGeometry(self.list_x + 5, 550, 100, 30)
         self.button_add_back.setDisabled(True)
         self.button_add_back.clicked.connect(self.add_back)
 
         self.button_delete = QPushButton("Delete", self)
         self.button_delete.setStyleSheet(styles.SMALL_BUTTON)
-        self.button_delete.setGeometry(495, 550, 100, 30)
+        self.button_delete.setGeometry(self.list_x + 115, 550, 100, 30)
         self.button_delete.setDisabled(True)
         self.button_delete.clicked.connect(self.delete_entry)
 
         self.button_new_entry = QPushButton("New Entry", self)
         self.button_new_entry.setStyleSheet(styles.SMALL_BUTTON)
-        self.button_new_entry.setGeometry(605, 550, 100, 30)
+        self.button_new_entry.setGeometry(self.list_x + 225, 550, 100, 30)
         self.button_new_entry.clicked.connect(self.new_entry)
 
     def list_clicked(self, item):
@@ -583,7 +590,7 @@ class InputWindow(QWidget):
             self.amount.setText(str(selected_entry.cost))
             match selected_entry.regular:
                 case "Regular":
-                    self.irregular.setGeometry(260, 128, 110, 40)
+                    self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
                     self.irregular.setEditable(False)
                     self.spin_period.setVisible(False)
                     self.label_month.setVisible(False)
@@ -591,7 +598,7 @@ class InputWindow(QWidget):
                         self.irregular.addItem("Regular but not monthly")
                     self.irregular.setCurrentIndex(0)
                 case "Irregular":
-                    self.irregular.setGeometry(260, 128, 110, 40)
+                    self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
                     self.irregular.setEditable(False)
                     self.spin_period.setVisible(False)
                     self.label_month.setVisible(False)
@@ -599,7 +606,7 @@ class InputWindow(QWidget):
                         self.irregular.addItem("Regular but not monthly")
                     self.irregular.setCurrentIndex(1)
                 case _:
-                    self.irregular.setGeometry(260, 114, 110, 40)
+                    self.irregular.setGeometry(self.switch_x + 220, 114, 110, 40)
                     self.irregular.removeItem(2)
                     self.irregular.setCurrentIndex(-1)
                     self.spin_period.setVisible(True)
@@ -646,7 +653,7 @@ class InputWindow(QWidget):
         self.income_note_entry.clear()
 
         # Reset the period selector back to "Regular".
-        self.irregular.setGeometry(260, 128, 110, 40)
+        self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
         self.irregular.setEditable(False)
         self.spin_period.setVisible(False)
         self.label_month.setVisible(False)
@@ -1211,7 +1218,7 @@ def main():
     load_data()
     main_window = MainWindow()
     main_window.setWindowTitle("Money Tracker")
-    main_window.setGeometry(500, 100, 790, 720)
+    main_window.setGeometry(500, 100, 790 + INPUT_SHIFT, 720)
     main_window.setFixedHeight(720)
     main_window.show()
     sys.exit(app.exec())
