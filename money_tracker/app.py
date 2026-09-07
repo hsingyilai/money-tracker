@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
     QPushButton,
-    QDateEdit,
+    QCalendarWidget,
     QLabel,
     QCheckBox,
     QListWidget,
@@ -362,10 +362,13 @@ class InputWindow(QWidget):
                 self.button_add_back.setDisabled(False)
 
     def init_select_date(self):
-        self.calender = QDateEdit(self)
-        self.calender.setGeometry(self.switch_x + 50, 80, 200, 40)
-        self.calender.setDate(qtoday)
-        self.calender.setStyleSheet("font-size: 20px;")
+        # A click-to-pick calendar living in the empty space to the left of
+        # the input-field column. It replaces the old QDateEdit; the spot the
+        # QDateEdit used to sit in (self.switch_x + 50, 80) is left empty.
+        self.calender = QCalendarWidget(self)
+        self.calender.setGeometry(12, 78, self.switch_x - 24, 200)
+        self.calender.setGridVisible(True)
+        self.calender.setSelectedDate(qtoday)
 
         self.label_date = QLabel("Date:", self)
         self.label_date.setGeometry(self.switch_x, 80, 50, 40)
@@ -378,7 +381,7 @@ class InputWindow(QWidget):
         self.button_today.clicked.connect(self.set_today)
 
     def set_today(self):
-        self.calender.setDate(qtoday)
+        self.calender.setSelectedDate(qtoday)
 
     def init_amount(self):
         self.label_amount = QLabel("Expense: $", self)
@@ -586,7 +589,9 @@ class InputWindow(QWidget):
         self.button_delete.setDisabled(False)
         if self.expense_mode:
             selected_entry = expense_list[len(expense_list) - 1 - self.index_selected]
-            self.calender.setDate(QDate.fromString(selected_entry.date, "yyyy-MM-dd"))
+            self.calender.setSelectedDate(
+                QDate.fromString(selected_entry.date, "yyyy-MM-dd")
+            )
             self.amount.setText(str(selected_entry.cost))
             match selected_entry.regular:
                 case "Regular":
@@ -633,7 +638,9 @@ class InputWindow(QWidget):
                     self.trip_selector.setCurrentIndex(i)
         else:
             selected_entry = income_list[len(income_list) - 1 - self.index_selected]
-            self.calender.setDate(QDate.fromString(selected_entry.date, "yyyy-MM-dd"))
+            self.calender.setSelectedDate(
+                QDate.fromString(selected_entry.date, "yyyy-MM-dd")
+            )
             self.amount.setText(str(selected_entry.amount))
             self.income_tree.select_by_name(selected_entry.category)
             self.income_note_entry.setText(selected_entry.note)
@@ -722,7 +729,7 @@ def list_add(inputwindow: InputWindow):
         inputwindow.amount.setText("0.00")
 
     # Append to expense_list and income_list
-    date = inputwindow.calender.date().toString("yyyy-MM-dd")
+    date = inputwindow.calender.selectedDate().toString("yyyy-MM-dd")
     if inputwindow.expense_mode:
         cost = float(inputwindow.amount.text())
         category = inputwindow.expense_tree.current_node().name
