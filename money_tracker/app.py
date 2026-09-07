@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
     QPushButton,
+    QAbstractItemView,
     QCalendarWidget,
     QLabel,
     QCheckBox,
@@ -21,7 +22,7 @@ from PyQt6.QtWidgets import (
     QSpinBox,
 )
 from PyQt6.QtCore import QDate, Qt, pyqtSignal
-from PyQt6.QtGui import QDoubleValidator
+from PyQt6.QtGui import QColor, QDoubleValidator, QPalette
 from anytree import Node, PreOrderIter, PostOrderIter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -368,8 +369,8 @@ class InputWindow(QWidget):
         self.calender = QCalendarWidget(self)
         self.calender.setGeometry(12, 78, self.switch_x - 24, 200)
         self.calender.setGridVisible(True)
-        self.calender.setStyleSheet(styles.CALENDAR)
         self.calender.setSelectedDate(qtoday)
+        self._recolor_calendar_selection()
 
         self.label_date = QLabel("Date:", self)
         self.label_date.setGeometry(self.switch_x, 80, 50, 40)
@@ -380,6 +381,20 @@ class InputWindow(QWidget):
         self.button_today.setStyleSheet("font-size: 16px;")
 
         self.button_today.clicked.connect(self.set_today)
+
+    def _recolor_calendar_selection(self):
+        """Make the selected day green (matching the entry list) instead of
+        the default grey. The native Windows style ignores a descendant
+        stylesheet on the QCalendarWidget, so style the inner view directly
+        and override its palette as a fallback."""
+        view = self.calender.findChild(QAbstractItemView, "qt_calendar_calendarview")
+        if view is None:
+            return
+        view.setStyleSheet(styles.CALENDAR_VIEW)
+        palette = view.palette()
+        palette.setColor(QPalette.ColorRole.Highlight, QColor(styles.SELECTION_GREEN))
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor("white"))
+        view.setPalette(palette)
 
     def set_today(self):
         self.calender.setSelectedDate(qtoday)

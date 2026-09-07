@@ -78,9 +78,12 @@ LIST_WIDGET = f"""
 """
 
 # Make the calendar's selected day use the same green instead of the
-# default grey highlight.
-CALENDAR = f"""
-    QCalendarWidget QAbstractItemView:enabled {{
+# default grey highlight. Applied directly to the calendar's inner item
+# view ("qt_calendar_calendarview"): a descendant selector on the
+# QCalendarWidget is ignored by the native Windows style, but a stylesheet
+# set straight on the view is honoured everywhere.
+CALENDAR_VIEW = f"""
+    QAbstractItemView {{
         selection-background-color: {SELECTION_GREEN};
         selection-color: white;
     }}
