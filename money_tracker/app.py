@@ -402,12 +402,18 @@ class InputWindow(QWidget):
         self.irregular.activated.connect(self.irregular_clicked)
 
         self.spin_period = QSpinBox(self)
-        self.spin_period.setGeometry(270, 146, 50, 30)
+        # Windows draws wider up/down buttons and right-aligns the text, so a
+        # 50px box hides the digits behind the buttons. Give it more room and
+        # left-align the number.
+        self.spin_period.setGeometry(260, 145, 70, 34)
+        self.spin_period.setStyleSheet("font-size: 15px;")
+        self.spin_period.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.spin_period.setMinimum(2)
         self.spin_period.setMaximum(999)
         self.spin_period.setVisible(False)
         self.label_month = QLabel("months", self)
-        self.label_month.setGeometry(325, 146, 50, 30)
+        self.label_month.setGeometry(336, 148, 44, 28)
+        self.label_month.setStyleSheet("font-size: 13px;")
         self.label_month.setVisible(False)
 
     def irregular_clicked(self, index):
