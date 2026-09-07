@@ -320,7 +320,7 @@ class InputWindow(QWidget):
             self.expense_mode = False
             self.income_tree.setVisible(True)
             self.expense_tree.setVisible(False)
-            self.label_amount.setText("Income:    $")
+            self.label_amount.setText("Income:   $")
             self.irregular.setVisible(False)
             self.expense_notes.setVisible(False)
             self.label_income_note.setVisible(True)
