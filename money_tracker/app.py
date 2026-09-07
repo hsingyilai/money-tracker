@@ -279,16 +279,12 @@ class InputWindow(QWidget):
         self.label_switch_expense = QLabel("Expense", self)
         self.label_switch_expense.setGeometry(self.switch_x, self.switch_y, 230, 40)
         self.label_switch_expense.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_switch_expense.setStyleSheet(
-            styles.SWITCH_LABEL_ACTIVE
-        )
+        self.label_switch_expense.setStyleSheet(styles.SWITCH_LABEL_ACTIVE)
 
         self.label_switch_income = QLabel("Income", self)
         self.label_switch_income.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
         self.label_switch_income.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_switch_income.setStyleSheet(
-            styles.SWITCH_LABEL_INACTIVE
-        )
+        self.label_switch_income.setStyleSheet(styles.SWITCH_LABEL_INACTIVE)
 
         self.switch = QCheckBox("", self)
         self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
@@ -405,8 +401,8 @@ class InputWindow(QWidget):
         # Windows draws wider up/down buttons and right-aligns the text, so a
         # 50px box hides the digits behind the buttons. Give it more room and
         # left-align the number.
-        self.spin_period.setGeometry(260, 145, 70, 34)
-        self.spin_period.setStyleSheet("font-size: 15px;")
+        self.spin_period.setGeometry(260, 145, 70, 30)
+        self.spin_period.setStyleSheet("font-size: 12px;")
         self.spin_period.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.spin_period.setMinimum(2)
         self.spin_period.setMaximum(999)
@@ -608,6 +604,13 @@ class InputWindow(QWidget):
                     self.irregular.setCurrentIndex(-1)
                     self.spin_period.setVisible(True)
                     self.label_month.setVisible(True)
+                    # selected_entry.regular has the form "Every X months".
+                    try:
+                        self.spin_period.setValue(
+                            int(selected_entry.regular.split()[1])
+                        )
+                    except (IndexError, ValueError):
+                        pass
             self.expense_tree.select_by_name(selected_entry.category)
             # Auto-fill the note fields from the selected entry. Rebuild the
             # rows for the entry's category first so any leftover edits are
@@ -777,16 +780,12 @@ class CategoriesWindow(QWidget):
         self.label_switch_expense.setGeometry(self.switch_x, self.switch_y, 230, 40)
 
         self.label_switch_expense.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_switch_expense.setStyleSheet(
-            styles.SWITCH_LABEL_ACTIVE
-        )
+        self.label_switch_expense.setStyleSheet(styles.SWITCH_LABEL_ACTIVE)
 
         self.label_switch_income = QLabel("Income", self)
         self.label_switch_income.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
         self.label_switch_income.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label_switch_income.setStyleSheet(
-            styles.SWITCH_LABEL_INACTIVE
-        )
+        self.label_switch_income.setStyleSheet(styles.SWITCH_LABEL_INACTIVE)
 
         self.switch = QCheckBox("", self)
         self.switch.setGeometry(self.switch_x + 230, self.switch_y, 95, 30)
