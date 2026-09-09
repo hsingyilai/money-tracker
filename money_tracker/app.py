@@ -374,11 +374,11 @@ class InputWindow(QWidget):
         self._recolor_calendar_selection()
 
         self.label_date = QLabel("Date:", self)
-        self.label_date.setGeometry(self.switch_x, 80, 50, 40)
+        self.label_date.setGeometry(12, 35, 50, 40)
         self.label_date.setStyleSheet("font-size: 20px;")
 
         self.button_today = QPushButton("Today", self)
-        self.button_today.setGeometry(self.switch_x + 255, 80, 70, 40)
+        self.button_today.setGeometry(210, 35, 70, 40)
         self.button_today.setStyleSheet("font-size: 16px;")
 
         self.button_today.clicked.connect(self.set_today)
@@ -412,11 +412,11 @@ class InputWindow(QWidget):
 
     def init_amount(self):
         self.label_amount = QLabel("Expense: $", self)
-        self.label_amount.setGeometry(self.switch_x, 130, 100, 35)
+        self.label_amount.setGeometry(self.switch_x, 85, 100, 35)
         self.label_amount.setStyleSheet("font-size: 20px;")
 
         self.amount = QLineEdit(self)
-        self.amount.setGeometry(self.switch_x + 100, 128, 110, 40)
+        self.amount.setGeometry(self.switch_x + 100, 83, 110, 40)
         self.amount.setPlaceholderText("0.00")
         self.amount.setStyleSheet("font-size: 20px;")
         validator = QDoubleValidator(0.00, 999999.99, 2, self)
@@ -425,7 +425,7 @@ class InputWindow(QWidget):
 
     def init_irregular(self):
         self.irregular = QComboBox(self)
-        self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
+        self.irregular.setGeometry(self.switch_x + 220, 78, 110, 40)
         self.irregular.setStyleSheet("font-size: 18px;")
         self.irregular.addItem("Regular")
         self.irregular.addItem("Irregular")
@@ -438,26 +438,26 @@ class InputWindow(QWidget):
         # Windows draws wider up/down buttons and right-aligns the text, so a
         # 50px box hides the digits behind the buttons. Give it more room and
         # left-align the number.
-        self.spin_period.setGeometry(self.switch_x + 210, 145, 80, 30)
+        self.spin_period.setGeometry(self.switch_x + 210, 105, 80, 30)
         self.spin_period.setStyleSheet("font-size: 12px;")
         self.spin_period.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.spin_period.setMinimum(2)
         self.spin_period.setMaximum(999)
         self.spin_period.setVisible(False)
         self.label_month = QLabel("months", self)
-        self.label_month.setGeometry(self.switch_x + 296, 148, 44, 28)
+        self.label_month.setGeometry(self.switch_x + 291, 108, 44, 28)
         self.label_month.setStyleSheet("font-size: 13px;")
         self.label_month.setVisible(False)
 
     def irregular_clicked(self, index):
         if index == 2:
-            self.irregular.setGeometry(self.switch_x + 220, 114, 110, 40)
+            self.irregular.setGeometry(self.switch_x + 220, 73, 110, 40)
             self.irregular.removeItem(2)
             self.irregular.setCurrentIndex(-1)
             self.spin_period.setVisible(True)
             self.label_month.setVisible(True)
         else:
-            self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
+            self.irregular.setGeometry(self.switch_x + 220, 78, 110, 40)
             self.irregular.setEditable(False)
             self.spin_period.setVisible(False)
             self.label_month.setVisible(False)
@@ -465,7 +465,7 @@ class InputWindow(QWidget):
                 self.irregular.addItem("Regular but not monthly")
 
     def init_category_tree(self):
-        geometry = (self.switch_x, self.switch_y + 145, 324, 170)
+        geometry = (self.switch_x, self.switch_y + 103, 324, 210)
 
         self.expense_tree = CategoryTree(expense_type, self)
         self.expense_tree.setGeometry(*geometry)
