@@ -622,7 +622,7 @@ class InputWindow(QWidget):
             self.amount.setText(str(selected_entry.cost))
             match selected_entry.regular:
                 case "Regular":
-                    self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
+                    self.irregular.setGeometry(self.switch_x + 220, 78, 110, 40)
                     self.irregular.setEditable(False)
                     self.spin_period.setVisible(False)
                     self.label_month.setVisible(False)
@@ -630,7 +630,7 @@ class InputWindow(QWidget):
                         self.irregular.addItem("Regular but not monthly")
                     self.irregular.setCurrentIndex(0)
                 case "Irregular":
-                    self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
+                    self.irregular.setGeometry(self.switch_x + 220, 78, 110, 40)
                     self.irregular.setEditable(False)
                     self.spin_period.setVisible(False)
                     self.label_month.setVisible(False)
@@ -638,7 +638,7 @@ class InputWindow(QWidget):
                         self.irregular.addItem("Regular but not monthly")
                     self.irregular.setCurrentIndex(1)
                 case _:
-                    self.irregular.setGeometry(self.switch_x + 220, 114, 110, 40)
+                    self.irregular.setGeometry(self.switch_x + 220, 73, 110, 40)
                     self.irregular.removeItem(2)
                     self.irregular.setCurrentIndex(-1)
                     self.spin_period.setVisible(True)
@@ -687,7 +687,7 @@ class InputWindow(QWidget):
         self.income_note_entry.clear()
 
         # Reset the period selector back to "Regular".
-        self.irregular.setGeometry(self.switch_x + 220, 128, 110, 40)
+        self.irregular.setGeometry(self.switch_x + 220, 78, 110, 40)
         self.irregular.setEditable(False)
         self.spin_period.setVisible(False)
         self.label_month.setVisible(False)
