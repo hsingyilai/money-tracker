@@ -1,4 +1,5 @@
 """Helpers that turn entries into the strings shown in the UI."""
+import bisect
 import datetime
 
 from .models import ExpenseEntry, IncomeEntry
@@ -49,6 +50,17 @@ def income_to_Qstring(income_list: list[IncomeEntry]) -> list[str]:
         q_string += f"{entry.amount:.2f}" + " " + entry.category + "\n" + entry.note
         q_list.insert(0, q_string)
     return q_list
+
+
+def insort_by_date(entry_list: list, entry) -> int:
+    """Insert entry into entry_list, keeping it sorted by date (ascending).
+
+    Entries sharing a date are placed after existing entries with that date.
+    Returns the index the entry was inserted at.
+    """
+    index = bisect.bisect_right(entry_list, entry.date, key=lambda e: e.date)
+    entry_list.insert(index, entry)
+    return index
 
 
 def get_trip_list(expense_list: list[ExpenseEntry]) -> list[str]:

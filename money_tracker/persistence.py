@@ -16,17 +16,21 @@ INCOME_CATEGORIES_FILE = "income_categories.json"
 def load_expenses(path: str = EXPENSES_FILE) -> list[ExpenseEntry]:
     try:
         with open(path, "r") as f:
-            return [ExpenseEntry(**entry) for entry in json.load(f)]
+            entries = [ExpenseEntry(**entry) for entry in json.load(f)]
     except FileNotFoundError:
         return []
+    entries.sort(key=lambda entry: entry.date)
+    return entries
 
 
 def load_incomes(path: str = INCOMES_FILE) -> list[IncomeEntry]:
     try:
         with open(path, "r") as f:
-            return [IncomeEntry(**entry) for entry in json.load(f)]
+            entries = [IncomeEntry(**entry) for entry in json.load(f)]
     except FileNotFoundError:
         return []
+    entries.sort(key=lambda entry: entry.date)
+    return entries
 
 
 def load_expense_categories(path: str = EXPENSE_CATEGORIES_FILE) -> Node:

@@ -37,6 +37,7 @@ from .formatting import (
     income_to_Qstring,
     expense_string,
     get_trip_list,
+    insort_by_date,
 )
 
 ureg = UnitRegistry()
@@ -704,17 +705,21 @@ class InputWindow(QWidget):
 
     def add_back(self):
         if self.expense_mode:
-            expense_list.append(removed_expense.pop(-1))
-            q_list_entry = expense_to_Qstring([expense_list[-1]])
+            entry = removed_expense.pop(-1)
+            index = insort_by_date(expense_list, entry)
+            q_list_entry = expense_to_Qstring([entry])
+            display_index = len(expense_list) - 1 - index
             if len(removed_expense) == 0:
                 self.button_add_back.setDisabled(True)
         else:
-            income_list.append(removed_income.pop(-1))
-            q_list_entry = income_to_Qstring([income_list[-1]])
+            entry = removed_income.pop(-1)
+            index = insort_by_date(income_list, entry)
+            q_list_entry = income_to_Qstring([entry])
+            display_index = len(income_list) - 1 - index
             if len(removed_income) == 0:
                 self.button_add_back.setDisabled(True)
 
-        self.list.insertItem(0, QListWidgetItem(q_list_entry[0]))
+        self.list.insertItem(display_index, QListWidgetItem(q_list_entry[0]))
 
     def filter_list(self, text):
         if text == "":
@@ -776,20 +781,24 @@ def list_add(inputwindow: InputWindow):
         else:
             regular = inputwindow.irregular.currentText()
         trip = inputwindow.trip_selector.currentText()
-        expense_list.append(ExpenseEntry(date, cost, category, notes, regular, trip))
+        entry = ExpenseEntry(date, cost, category, notes, regular, trip)
+        index = insort_by_date(expense_list, entry)
     else:
         amount = float(inputwindow.amount.text())
         category = inputwindow.income_tree.current_node().name
         note = inputwindow.income_note_entry.text()
-        income_list.append(IncomeEntry(date, amount, category, note))
+        entry = IncomeEntry(date, amount, category, note)
+        index = insort_by_date(income_list, entry)
 
-    # Update QListWidget
+    # Update QListWidget (displayed newest-date-first, the reverse of the list)
     if inputwindow.expense_mode:
-        q_list_entry = expense_to_Qstring([expense_list[-1]])
+        q_list_entry = expense_to_Qstring([entry])
+        display_index = len(expense_list) - 1 - index
     else:
-        q_list_entry = income_to_Qstring([income_list[-1]])
+        q_list_entry = income_to_Qstring([entry])
+        display_index = len(income_list) - 1 - index
 
-    inputwindow.list.insertItem(0, QListWidgetItem(q_list_entry[0]))
+    inputwindow.list.insertItem(display_index, QListWidgetItem(q_list_entry[0]))
 
 
 def list_remove(inputwindow: InputWindow):
