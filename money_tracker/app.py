@@ -719,7 +719,9 @@ class InputWindow(QWidget):
             if len(removed_income) == 0:
                 self.button_add_back.setDisabled(True)
 
-        self.list.insertItem(display_index, QListWidgetItem(q_list_entry[0]))
+        new_item = QListWidgetItem(q_list_entry[0])
+        self.list.insertItem(display_index, new_item)
+        self.list.scrollToItem(new_item)
 
     def filter_list(self, text):
         if text == "":
@@ -798,7 +800,9 @@ def list_add(inputwindow: InputWindow):
         q_list_entry = income_to_Qstring([entry])
         display_index = len(income_list) - 1 - index
 
-    inputwindow.list.insertItem(display_index, QListWidgetItem(q_list_entry[0]))
+    new_item = QListWidgetItem(q_list_entry[0])
+    inputwindow.list.insertItem(display_index, new_item)
+    inputwindow.list.scrollToItem(new_item)
 
 
 def list_remove(inputwindow: InputWindow):
