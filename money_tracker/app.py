@@ -1,5 +1,6 @@
 import copy
 import datetime
+import re
 import sys
 
 from PyQt6.QtWidgets import (
@@ -42,6 +43,11 @@ from .formatting import (
 
 ureg = UnitRegistry()
 Q_ = ureg.Quantity
+
+# Matches the `regular` values written by list_add() for "Every X months"
+# (X being any integer), and nothing else - not "Regular", "Irregular", or
+# "Regular but not monthly".
+PERIODIC_REGEX = re.compile(r"^Every \d+ months$")
 
 
 # Define a QDate object for today.
@@ -147,6 +153,8 @@ class MainWindow(QWidget):
             page.reload_categories()
         elif name == "Summary":
             page.load_options(page.summary_type.currentText())
+        elif name == "Periodic Expenses":
+            page.refresh()
 
     def closeEvent(self, event):
         save_data()
@@ -1257,7 +1265,21 @@ class PeriodicWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        QLabel("The Periodic Expenses page is under construction", self)
+        self.label_title = QLabel("Periodic Expenses", self)
+        self.label_title.setGeometry(40, 30, 400, 40)
+        self.label_title.setStyleSheet("font-size: 22px; font-weight: bold;")
+
+        self.list = QListWidget(self)
+        self.list.setGeometry(40, 80, 600, 550)
+        self.list.setStyleSheet(styles.LIST_WIDGET)
+        self.refresh()
+
+    def refresh(self):
+        self.list.clear()
+        periodic_expenses = [
+            entry for entry in expense_list if PERIODIC_REGEX.match(entry.regular)
+        ]
+        self.list.addItems(expense_to_Qstring(periodic_expenses))
 
 
 def main():
