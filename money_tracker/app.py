@@ -85,7 +85,7 @@ def save_data():
 
 
 # Main Window
-PAGES = ["Input", "Categories", "Summary", "Periodic Expenses"]
+PAGES = ["Input", "Categories", "Summary", "Periodic Expenses", "Graph"]
 
 # Horizontal shift applied to the Input page so the widened window grows
 # to the left of the centred input fields.
@@ -129,6 +129,7 @@ class MainWindow(QWidget):
             "Categories": CategoriesWindow(),
             "Summary": SummaryWindow(),
             "Periodic Expenses": PeriodicWindow(),
+            "Graph": GraphWindow(),
         }
         for widget in self._page_by_name.values():
             self.pages.addWidget(widget)
@@ -1280,6 +1281,13 @@ class PeriodicWindow(QWidget):
             entry for entry in expense_list if PERIODIC_REGEX.match(entry.regular)
         ]
         self.list.addItems(expense_to_Qstring(periodic_expenses))
+
+
+class GraphWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        QLabel("The Graph page is under construction", self)
 
 
 def main():
