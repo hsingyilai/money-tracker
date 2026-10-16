@@ -29,9 +29,10 @@ from PyQt6.QtGui import QColor, QDoubleValidator, QPalette
 from anytree import Node, PreOrderIter, PostOrderIter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.ticker import FuncFormatter
 from pint import UnitRegistry
 
-from . import persistence, styles
+from . import graph_data, persistence, styles
 from .category_tree import CategoryTree
 from .models import ExpenseEntry, IncomeEntry
 from .formatting import (
@@ -173,6 +174,8 @@ class MainWindow(QWidget):
         elif name == "Summary":
             page.load_options(page.summary_type.currentText())
         elif name == "Periodic Expenses":
+            page.refresh()
+        elif name == "Graph":
             page.refresh()
 
     def closeEvent(self, event):
@@ -1322,10 +1325,88 @@ class PeriodicWindow(QWidget):
 
 
 class GraphWindow(QWidget):
+    GRAPH_TYPES = ["Expense by month", "Income minus expense by month"]
+
     def __init__(self):
         super().__init__()
 
-        QLabel("The Graph page is under construction", self)
+        self.graph_type = QComboBox(self)
+        self.graph_type.setStyleSheet("font-size: 18px;")
+        self.graph_type.addItems(self.GRAPH_TYPES)
+        self.graph_type.currentTextChanged.connect(self.draw)
+
+        self.figure = Figure(layout="constrained")
+        self.canvas = FigureCanvas(self.figure)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.graph_type)
+        layout.addWidget(self.canvas, stretch=1)
+
+        self.draw()
+
+    def refresh(self):
+        """Redraw from the current data (called when the page is shown)."""
+        self.draw()
+
+    def draw(self, _=None):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        if self.graph_type.currentText() == "Expense by month":
+            self.draw_expense_by_month(ax)
+        else:
+            self.draw_net_by_month(ax)
+        ax.yaxis.set_major_formatter(FuncFormatter(self.format_dollars))
+        self.canvas.draw()
+
+    @staticmethod
+    def format_dollars(value, _position=None):
+        return f"-${abs(value):,.0f}" if value < 0 else f"${value:,.0f}"
+
+    def set_month_ticks(self, ax, months):
+        # Thin the labels out when there are many months so they stay readable.
+        step = max(1, len(months) // 24)
+        positions = list(range(0, len(months), step))
+        ax.set_xticks(positions, [months[i] for i in positions], rotation=45, ha="right")
+
+    def draw_no_data(self, ax, title):
+        ax.set_title(title)
+        ax.text(0.5, 0.5, "No data to graph", ha="center", va="center",
+                transform=ax.transAxes)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    def draw_expense_by_month(self, ax):
+        months, regular, not_regular = graph_data.expense_by_month(expense_list)
+        if not months:
+            self.draw_no_data(ax, "Expense by month")
+            return
+
+        x = list(range(len(months)))
+        # Regular on the bottom, not regular stacked on top of it.
+        ax.bar(x, regular, color=styles.CHART_REGULAR, label="Regular")
+        ax.bar(x, not_regular, bottom=regular, color=styles.CHART_NOT_REGULAR,
+               label="Not regular")
+        self.set_month_ticks(ax, months)
+        ax.set_ylabel("Total expense")
+        ax.set_title("Expense by month")
+        ax.legend()
+
+    def draw_net_by_month(self, ax):
+        months, net = graph_data.net_by_month(income_list, expense_list)
+        if not months:
+            self.draw_no_data(ax, "Income minus expense by month")
+            return
+
+        x = list(range(len(months)))
+        colors = [
+            styles.CHART_POSITIVE if value >= 0 else styles.CHART_NEGATIVE
+            for value in net
+        ]
+        ax.bar(x, net, color=colors)
+        ax.axhline(0, color="black", linewidth=0.8)
+        self.set_month_ticks(ax, months)
+        ax.set_ylabel("Income minus expense")
+        ax.set_title("Income minus expense by month")
 
 
 def main():

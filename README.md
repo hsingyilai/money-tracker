@@ -26,6 +26,7 @@ above for their format.
 | `money_tracker/formatting.py` | Turning entries into display strings |
 | `money_tracker/styles.py` | Shared Qt stylesheet snippets |
 | `money_tracker/category_tree.py` | `CategoryTree` widget mirroring an anytree tree |
+| `money_tracker/graph_data.py` | Monthly totals behind the Graph page (no Qt) |
 | `money_tracker/app.py` | Windows, navigation and the `main()` entry point |
 | `main_app.py` | Thin launcher (`python main_app.py`) |
 

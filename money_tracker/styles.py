@@ -88,3 +88,9 @@ CALENDAR_VIEW = f"""
         selection-color: white;
     }}
 """
+
+# Graph page bar colours.
+CHART_REGULAR = "#4c78a8"
+CHART_NOT_REGULAR = "#f58518"
+CHART_POSITIVE = SELECTION_GREEN
+CHART_NEGATIVE = "#c0392b"
