@@ -1,5 +1,6 @@
 import copy
 import datetime
+import math
 import re
 import sys
 
@@ -43,6 +44,23 @@ from .formatting import (
 
 ureg = UnitRegistry()
 Q_ = ureg.Quantity
+
+# Categories with this note get a price-per-pound comparison in the summary,
+# which needs the value to be a positive weight Pint can convert to pounds.
+WEIGHT_NOTE = "quantity (weight)"
+
+
+def parse_weight_lb(text: str) -> float | None:
+    """Return text (e.g. "2 lb", "500 g") as a positive number of pounds, or
+    None if Pint can't read it, it isn't a weight, or it isn't greater than 0."""
+    try:
+        magnitude = Q_(text).to("lb").magnitude
+    except Exception:  # Pint raises several error types for unreadable input.
+        return None
+    if not math.isfinite(magnitude) or magnitude <= 0:
+        return None
+    return magnitude
+
 
 # Matches the `regular` values written by list_add() for "Every X months"
 # (X being any integer), and nothing else - not "Regular", "Irregular", or
@@ -199,6 +217,15 @@ class ScrollableFormApp(QWidget):
             entry = QLineEdit()
             entry.setStyleSheet("font-size: 16px;")
             self.form_layout.addRow(label, entry)
+
+    def values(self) -> dict:
+        """Return the form as a {label: text} mapping (the inverse of fill_values)."""
+        result = {}
+        for row in range(self.form_layout.rowCount()):
+            label_item = self.form_layout.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            field_item = self.form_layout.itemAt(row, QFormLayout.ItemRole.FieldRole)
+            result[label_item.widget().text()] = field_item.widget().text()
+        return result
 
     def fill_values(self, values: dict) -> None:
         """Fill the note fields from a {label: value} mapping.
@@ -574,7 +601,27 @@ class InputWindow(QWidget):
 
         self.button_submit.clicked.connect(self.submit_entry)
 
+    def weight_note_is_valid(self) -> bool:
+        """If the selected expense category tracks a weight, check that the
+        entered weight is something the summary can use. Prints a warning and
+        returns False if not."""
+        if not self.expense_mode:
+            return True
+        node = self.expense_tree.current_node()
+        if node is None or WEIGHT_NOTE not in getattr(node, "notes", []):
+            return True
+        text = self.expense_notes.values().get(WEIGHT_NOTE, "")
+        if parse_weight_lb(text) is not None:
+            return True
+        print(
+            f'Warning: entry not submitted. "{WEIGHT_NOTE}" must be a weight '
+            f'with units, such as "2 lb" or "500 g" (got {text!r}).'
+        )
+        return False
+
     def submit_entry(self):
+        if not self.weight_note_is_valid():
+            return
         list_add(self)
         self.amount.clear()
         # update trip list
@@ -776,16 +823,7 @@ def list_add(inputwindow: InputWindow):
     if inputwindow.expense_mode:
         cost = float(inputwindow.amount.text())
         category = inputwindow.expense_tree.current_node().name
-        notes_q_pair = (
-            inputwindow.expense_notes.form_layout
-        )  # QFormLayout storing (key, value) for notes.
-        notes = {}
-        for i in range(notes_q_pair.rowCount()):
-            # Get the label item/widget for the row
-            label = notes_q_pair.itemAt(i, QFormLayout.ItemRole.LabelRole)
-            # Get the field item/widget for the row
-            line_entry = notes_q_pair.itemAt(i, QFormLayout.ItemRole.FieldRole)
-            notes[label.widget().text()] = line_entry.widget().text()
+        notes = inputwindow.expense_notes.values()
 
         if inputwindow.irregular.currentIndex() == -1:
             regular = "Every " + str(inputwindow.spin_period.value()) + " months"
@@ -1169,7 +1207,7 @@ class SummaryWindow(QWidget):
 
             # Compare price if quantity (weight) is noted.
             for category in PostOrderIter(expense_type):
-                if "quantity (weight)" in category.notes:
+                if WEIGHT_NOTE in category.notes:
                     print("-" * 100)
                     cheapest_per_lb = -1
                     most_expensive = 0
@@ -1179,7 +1217,7 @@ class SummaryWindow(QWidget):
                     for entry in expense_list_for_summary:
                         i += 1
                         if entry.category == category.name:
-                            weight_in_lb = Q_(entry.notes["quantity (weight)"]).to("lb")
+                            weight_in_lb = Q_(entry.notes[WEIGHT_NOTE]).to("lb")
                             price_per_lb = entry.cost / weight_in_lb.magnitude
                             total_weight += weight_in_lb.magnitude
                             total_cost += entry.cost
