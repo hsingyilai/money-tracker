@@ -1356,6 +1356,9 @@ class GraphWindow(QWidget):
         else:
             self.draw_net_by_month(ax)
         ax.yaxis.set_major_formatter(FuncFormatter(self.format_dollars))
+        # Horizontal grid lines behind the bars to make amounts easier to read.
+        ax.set_axisbelow(True)
+        ax.grid(axis="y", color="#d0d0d0", linewidth=0.8)
         self.canvas.draw()
 
     @staticmethod
