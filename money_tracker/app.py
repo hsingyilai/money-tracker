@@ -1325,7 +1325,11 @@ class PeriodicWindow(QWidget):
 
 
 class GraphWindow(QWidget):
-    GRAPH_TYPES = ["Expense by month", "Income minus expense by month"]
+    GRAPH_TYPES = [
+        "Expense by month",
+        "Income minus expense by month",
+        "Regular expense by month",
+    ]
 
     def __init__(self):
         super().__init__()
@@ -1351,10 +1355,12 @@ class GraphWindow(QWidget):
     def draw(self, _=None):
         self.figure.clear()
         ax = self.figure.add_subplot(111)
-        if self.graph_type.currentText() == "Expense by month":
-            self.draw_expense_by_month(ax)
-        else:
-            self.draw_net_by_month(ax)
+        drawers = {
+            "Expense by month": self.draw_expense_by_month,
+            "Income minus expense by month": self.draw_net_by_month,
+            "Regular expense by month": self.draw_regular_expense_by_month,
+        }
+        drawers[self.graph_type.currentText()](ax)
         ax.yaxis.set_major_formatter(FuncFormatter(self.format_dollars))
         # Horizontal grid lines behind the bars to make amounts easier to read.
         ax.set_axisbelow(True)
@@ -1391,6 +1397,16 @@ class GraphWindow(QWidget):
         self.set_month_ticks(ax, months)
         ax.set_ylabel("Total expense")
         ax.legend()
+
+    def draw_regular_expense_by_month(self, ax):
+        months, regular = graph_data.regular_expense_by_month(expense_list)
+        if not months:
+            self.draw_no_data(ax)
+            return
+
+        ax.bar(range(len(months)), regular, color=styles.CHART_REGULAR)
+        self.set_month_ticks(ax, months)
+        ax.set_ylabel("Total regular expense")
 
     def draw_net_by_month(self, ax):
         months, net = graph_data.net_by_month(income_list, expense_list)

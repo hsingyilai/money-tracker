@@ -56,6 +56,18 @@ def expense_by_month(
     )
 
 
+def regular_expense_by_month(
+    expenses: list[ExpenseEntry],
+) -> tuple[list[str], list[float]]:
+    """Return (month labels, regular totals), counting only entries whose
+    regular field is exactly "Regular". The months span from the first to
+    the last regular expense."""
+    months, regular, _ = expense_by_month(
+        [entry for entry in expenses if entry.regular == "Regular"]
+    )
+    return months, regular
+
+
 def net_by_month(
     incomes: list[IncomeEntry], expenses: list[ExpenseEntry]
 ) -> tuple[list[str], list[float]]:
