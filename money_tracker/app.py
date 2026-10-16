@@ -1368,8 +1368,7 @@ class GraphWindow(QWidget):
         positions = list(range(0, len(months), step))
         ax.set_xticks(positions, [months[i] for i in positions], rotation=45, ha="right")
 
-    def draw_no_data(self, ax, title):
-        ax.set_title(title)
+    def draw_no_data(self, ax):
         ax.text(0.5, 0.5, "No data to graph", ha="center", va="center",
                 transform=ax.transAxes)
         ax.set_xticks([])
@@ -1378,7 +1377,7 @@ class GraphWindow(QWidget):
     def draw_expense_by_month(self, ax):
         months, regular, not_regular = graph_data.expense_by_month(expense_list)
         if not months:
-            self.draw_no_data(ax, "Expense by month")
+            self.draw_no_data(ax)
             return
 
         x = list(range(len(months)))
@@ -1388,13 +1387,12 @@ class GraphWindow(QWidget):
                label="Not regular")
         self.set_month_ticks(ax, months)
         ax.set_ylabel("Total expense")
-        ax.set_title("Expense by month")
         ax.legend()
 
     def draw_net_by_month(self, ax):
         months, net = graph_data.net_by_month(income_list, expense_list)
         if not months:
-            self.draw_no_data(ax, "Income minus expense by month")
+            self.draw_no_data(ax)
             return
 
         x = list(range(len(months)))
@@ -1406,7 +1404,6 @@ class GraphWindow(QWidget):
         ax.axhline(0, color="black", linewidth=0.8)
         self.set_month_ticks(ax, months)
         ax.set_ylabel("Income minus expense")
-        ax.set_title("Income minus expense by month")
 
 
 def main():
