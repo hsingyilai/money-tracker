@@ -627,11 +627,14 @@ class InputWindow(QWidget):
             return
         list_add(self)
         self.amount.clear()
-        # If the category has just one note, clear its text for the next entry.
+        # Clear the note text for the next entry: always in income mode, and in
+        # expense mode only if the category has just one note.
         if self.expense_mode:
             node = self.expense_tree.current_node()
             if node is not None and len(getattr(node, "notes", [])) == 1:
                 self.expense_notes.fill_values({})  # no values -> every field blanked
+        else:
+            self.income_note_entry.clear()
         # update trip list
         selected_trip = self.trip_selector.currentText()
         if selected_trip in trip_list:
