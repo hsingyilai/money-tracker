@@ -168,7 +168,6 @@ class MainWindow(QWidget):
         # Per-page refresh when it comes to the front.
         if name == "Input":
             page.refresh()
-            page.button_delete.setDisabled(True)
         elif name == "Categories":
             page.reload_categories()
         elif name == "Summary":
@@ -306,13 +305,22 @@ class InputWindow(QWidget):
         self.initUI()
         self.expense_mode = True
 
+    @property
+    def index_selected(self):
+        """Row of the entry highlighted on the list, or None.
+
+        Read from the list itself rather than cached, so it can't go stale when
+        rows are inserted (Add back, Submit) or the selection is cleared.
+        """
+        items = self.list.selectedItems()
+        return self.list.row(items[0]) if items else None
+
     def initUI(self):
         # The input-field column and the entry list are positioned relative
         # to these anchors so the window can be widened by moving them.
         self.switch_x = 40 + INPUT_SHIFT
         self.list_x = 380 + INPUT_SHIFT
         self.switch_y = 30
-        self.index_selected = None  # The index of selected entry on the list
         self.init_expense_income_switch()
         self.init_select_date()
         self.init_amount()
@@ -356,8 +364,6 @@ class InputWindow(QWidget):
                 self.switch_x + 95, self.switch_y, 230, 40
             )
             self.list.clear()
-            self.button_delete.setDisabled(True)
-            self.index_selected = None
             self.list.addItems(income_to_Qstring(income_list))
             self.expense_mode = False
             self.income_tree.setVisible(True)
@@ -386,8 +392,6 @@ class InputWindow(QWidget):
                 self.switch_x + 230, self.switch_y, 95, 30
             )
             self.list.clear()
-            self.button_delete.setDisabled(True)
-            self.index_selected = None
             self.list.addItems(expense_to_Qstring(expense_list))
             self.expense_mode = True
             self.income_tree.setVisible(False)
@@ -651,7 +655,6 @@ class InputWindow(QWidget):
             trip_list.append(selected_trip)
             trip_list.sort()
         self.list.clearSelection()
-        self.index_selected = None
 
     def init_list(self):
         self.label_find = QLabel("Find:", self)
@@ -680,17 +683,21 @@ class InputWindow(QWidget):
         self.button_delete.setGeometry(self.list_x + 115, 550, 100, 30)
         self.button_delete.setDisabled(True)
         self.button_delete.clicked.connect(self.delete_entry)
+        # Delete is enabled exactly while an entry is highlighted.
+        self.list.itemSelectionChanged.connect(self.update_delete_button)
 
         self.button_new_entry = QPushButton("New Entry", self)
         self.button_new_entry.setStyleSheet(styles.SMALL_BUTTON)
         self.button_new_entry.setGeometry(self.list_x + 225, 550, 100, 30)
         self.button_new_entry.clicked.connect(self.new_entry)
 
+    def update_delete_button(self):
+        self.button_delete.setEnabled(self.index_selected is not None)
+
     def list_clicked(self, item):
-        self.index_selected = self.list.row(item)
-        self.button_delete.setDisabled(False)
+        row = self.list.row(item)
         if self.expense_mode:
-            selected_entry = expense_list[len(expense_list) - 1 - self.index_selected]
+            selected_entry = expense_list[len(expense_list) - 1 - row]
             self.calender.setSelectedDate(
                 QDate.fromString(selected_entry.date, "yyyy-MM-dd")
             )
@@ -739,7 +746,7 @@ class InputWindow(QWidget):
                 if self.trip_selector.itemText(i) == selected_entry.trip:
                     self.trip_selector.setCurrentIndex(i)
         else:
-            selected_entry = income_list[len(income_list) - 1 - self.index_selected]
+            selected_entry = income_list[len(income_list) - 1 - row]
             self.calender.setSelectedDate(
                 QDate.fromString(selected_entry.date, "yyyy-MM-dd")
             )
@@ -749,8 +756,6 @@ class InputWindow(QWidget):
 
     def new_entry(self):
         self.list.clearSelection()
-        self.index_selected = None
-        self.button_delete.setDisabled(True)
         self.trip_selector.setCurrentIndex(-1)
         self.amount.clear()
 
@@ -771,11 +776,11 @@ class InputWindow(QWidget):
         self.irregular.setCurrentIndex(0)
 
     def delete_entry(self):
+        if self.index_selected is None:
+            return
         list_remove(self)
         self.list.clearSelection()
-        self.index_selected = None
         self.button_add_back.setDisabled(False)
-        self.button_delete.setDisabled(True)
 
     def add_back(self):
         if self.expense_mode:
@@ -871,21 +876,25 @@ def list_add(inputwindow: InputWindow):
 
 
 def list_remove(inputwindow: InputWindow):
+    row = inputwindow.index_selected  # the highlighted row on the list
+    if row is None:
+        return
+
     # Put item into removed list to be restored
     if inputwindow.expense_mode:
         # Convert the index since the order of two lists are reversed
-        index = len(expense_list) - 1 - inputwindow.index_selected
+        index = len(expense_list) - 1 - row
         removed_expense.append(expense_list.pop(index))
         # Update trip list
         global trip_list
         trip_list = get_trip_list(expense_list)
     else:
         # Convert the index since the order of two lists are reversed
-        index = len(income_list) - 1 - inputwindow.index_selected
+        index = len(income_list) - 1 - row
         removed_income.append(income_list.pop(index))
 
     # Update QListWidget, need to do this after the above because the removing row in q_list will update the idex
-    q_list_entry = inputwindow.list.takeItem(inputwindow.index_selected)
+    q_list_entry = inputwindow.list.takeItem(row)
     del q_list_entry
 
 
