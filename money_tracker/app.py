@@ -403,6 +403,10 @@ class InputWindow(QWidget):
             else:
                 self.button_add_back.setDisabled(False)
 
+        # A name typed before switching has to be checked against the other
+        # mode's categories.
+        self.update_add_category_button()
+
     def init_select_date(self):
         # A click-to-pick calendar living in the empty space to the left of
         # the input-field column. It replaces the old QDateEdit; the spot the
@@ -537,11 +541,14 @@ class InputWindow(QWidget):
         self.new_category.textChanged.connect(self.entering_category)
         self.add_category.clicked.connect(self.add_new_category)
 
+    def update_add_category_button(self):
+        """Enable "Add" only for a non-empty name no existing category has."""
+        tree = self.expense_tree if self.expense_mode else self.income_tree
+        name = self.new_category.text()
+        self.add_category.setEnabled(name != "" and not tree.has_name(name))
+
     def entering_category(self):
-        if self.new_category.text() == "":
-            self.add_category.setEnabled(False)
-        else:
-            self.add_category.setEnabled(True)
+        self.update_add_category_button()
 
         if self.expense_mode:
             self.expense_notes.enable_button()

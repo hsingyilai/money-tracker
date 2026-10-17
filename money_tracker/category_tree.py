@@ -59,6 +59,10 @@ class CategoryTree(QTreeWidget):
     def select_node(self, node: Node) -> None:
         self.setCurrentItem(self._items[node.index])
 
+    def has_name(self, name: str) -> bool:
+        """True if any category currently in the tree has exactly this name."""
+        return any(node.name == name for node in PreOrderIter(self._root))
+
     def select_by_name(self, name: str) -> None:
         for node in PreOrderIter(self._root):
             if node.name == name:
