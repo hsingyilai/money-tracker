@@ -12,10 +12,11 @@ python -m pip install -r requirements.txt
 python main_app.py
 ```
 
-The app reads and writes four JSON files in the working directory:
-`my_expenses.json`, `my_incomes.json`, `expense_categories.json`,
-`income_categories.json`. Missing files are created on first exit. See the link
-above for their format.
+The app reads and writes four JSON files in `user_data/current/` inside the
+project folder: `my_expenses.json`, `my_incomes.json`,
+`expense_categories.json`, `income_categories.json`. If the folder or any file
+is missing, it is created (empty) at startup. See the link above for their
+format.
 
 ## Layout
 

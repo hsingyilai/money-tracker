@@ -88,6 +88,7 @@ removed_income = []
 def load_data():
     """Read the user's data files into the module-level state."""
     global expense_list, income_list, expense_type, income_type, trip_list
+    persistence.ensure_data_files()
     expense_list = persistence.load_expenses()
     income_list = persistence.load_incomes()
     expense_type = persistence.load_expense_categories()
