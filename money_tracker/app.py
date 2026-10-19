@@ -1182,8 +1182,10 @@ class SummaryWindow(QWidget):
         else:
             regular_category = []
             regular_value = []
+            regular_colors = []
             not_regular_category = []
             not_regular_value = []
+            not_regular_colors = []
             print("Total spending in each category:")
 
             for category in PreOrderIter(expense_type_copy):
@@ -1191,15 +1193,21 @@ class SummaryWindow(QWidget):
                     f"{len(category.ancestors) * '   '}{category.name}: ${category.total}"
                 )
 
-            for child in expense_type_copy.children:
+            # A category keeps the same colour in both pies (and in every period),
+            # so it is picked by its position among all top-level categories.
+            palette = styles.CHART_CATEGORY_COLORS
+            for i, child in enumerate(expense_type_copy.children):
+                color = palette[i % len(palette)]
                 if child.regular_total > 0:
                     regular_category.append(child.name + f" ${child.regular_total}")
                     regular_value.append(child.regular_total)
+                    regular_colors.append(color)
                 if child.not_regular_total > 0:
                     not_regular_category.append(
                         child.name + f" ${child.not_regular_total}"
                     )
                     not_regular_value.append(child.not_regular_total)
+                    not_regular_colors.append(color)
 
             print("-" * 100)
             # Select income entries to summarize
@@ -1299,6 +1307,7 @@ class SummaryWindow(QWidget):
                     ax1.pie(
                         regular_value,
                         labels=regular_category,
+                        colors=regular_colors,
                         autopct="%1.1f%%",
                         radius=0.7,
                     )
@@ -1316,6 +1325,7 @@ class SummaryWindow(QWidget):
                     ax3.pie(
                         not_regular_value,
                         labels=not_regular_category,
+                        colors=not_regular_colors,
                         autopct="%1.1f%%",
                         radius=0.7,
                     )

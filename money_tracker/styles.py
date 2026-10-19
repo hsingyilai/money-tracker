@@ -94,3 +94,19 @@ CHART_REGULAR = "#4c78a8"
 CHART_NOT_REGULAR = "#f58518"
 CHART_POSITIVE = SELECTION_GREEN
 CHART_NEGATIVE = "#c0392b"
+
+# One colour per top-level expense category, shared by the Summary pie charts.
+# These are matplotlib's default cycle; the list repeats if there are more
+# categories than colours.
+CHART_CATEGORY_COLORS = (
+    "#1f77b4",
+    "#ff7f0e",
+    "#2ca02c",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#7f7f7f",
+    "#bcbd22",
+    "#17becf",
+)
