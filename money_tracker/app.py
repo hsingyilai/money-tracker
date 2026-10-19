@@ -29,6 +29,7 @@ from PyQt6.QtGui import QColor, QDoubleValidator, QPalette
 from anytree import Node, PreOrderIter, PostOrderIter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.patches import Patch
 from matplotlib.ticker import FuncFormatter
 from pint import UnitRegistry
 
@@ -1180,12 +1181,13 @@ class SummaryWindow(QWidget):
                         plot_category.append(category.name + f" ${category.total}")
                         plot_value.append(category.total)
         else:
-            regular_category = []
+            regular_labels = []
             regular_value = []
             regular_colors = []
-            not_regular_category = []
+            not_regular_labels = []
             not_regular_value = []
             not_regular_colors = []
+            legend_entries = []  # (category name, colour) for the legend
             print("Total spending in each category:")
 
             for category in PreOrderIter(expense_type_copy):
@@ -1199,15 +1201,15 @@ class SummaryWindow(QWidget):
             for i, child in enumerate(expense_type_copy.children):
                 color = palette[i % len(palette)]
                 if child.regular_total > 0:
-                    regular_category.append(child.name + f" ${child.regular_total}")
+                    regular_labels.append(f"${child.regular_total}")
                     regular_value.append(child.regular_total)
                     regular_colors.append(color)
                 if child.not_regular_total > 0:
-                    not_regular_category.append(
-                        child.name + f" ${child.not_regular_total}"
-                    )
+                    not_regular_labels.append(f"${child.not_regular_total}")
                     not_regular_value.append(child.not_regular_total)
                     not_regular_colors.append(color)
+                if child.regular_total > 0 or child.not_regular_total > 0:
+                    legend_entries.append((child.name, color))
 
             print("-" * 100)
             # Select income entries to summarize
@@ -1299,40 +1301,66 @@ class SummaryWindow(QWidget):
                 ax.pie(plot_value, labels=plot_category, autopct="%1.1f%%")
                 ax.set_title(plot_title)
             case "Summarize by time":
-                center_value = [sum(regular_value), sum(not_regular_value)]
-                ax1 = self.figure.add_subplot(1, 3, 1)
-                ax2 = self.figure.add_subplot(1, 3, 2)
-                ax3 = self.figure.add_subplot(1, 3, 3)
+                regular_sum = sum(regular_value)
+                not_regular_sum = sum(not_regular_value)
+                combined = regular_sum + not_regular_sum
+
+                def pie_radius(part):
+                    # Pie area is proportional to its share of the spending; an
+                    # even split gives 0.7 each. Never smaller than 0.2 so a tiny
+                    # share stays visible. combined is 0 when no expense is counted
+                    # (e.g. a month with only $0 entries), where both pies are empty.
+                    if combined <= 0:
+                        return 0.7
+                    return max(0.2, 0.7 * math.sqrt(2 * part / combined))
+
+                ax1 = self.figure.add_subplot(1, 2, 1)
+                ax2 = self.figure.add_subplot(1, 2, 2)
                 try:
                     ax1.pie(
                         regular_value,
-                        labels=regular_category,
+                        labels=regular_labels,
                         colors=regular_colors,
                         autopct="%1.1f%%",
-                        radius=0.7,
+                        radius=pie_radius(regular_sum),
                     )
                 except ValueError:
                     print("No regular expenses.")
                 else:
                     ax1.set_title(f"Regular ${expense_type_copy.regular_total}")
                 try:
-                    ax2.pie(center_value, autopct="%1.1f%%", startangle=90, radius=0.7)
-                except ValueError:
-                    print("No expenses.")
-                else:
-                    ax2.set_title(f"Total Spending\n${expense_type_copy.total}")
-                try:
-                    ax3.pie(
+                    ax2.pie(
                         not_regular_value,
-                        labels=not_regular_category,
+                        labels=not_regular_labels,
                         colors=not_regular_colors,
                         autopct="%1.1f%%",
-                        radius=0.7,
+                        radius=pie_radius(not_regular_sum),
                     )
                 except ValueError:
                     print("No non-regular expenses.")
                 else:
-                    ax3.set_title(f"Not regular ${expense_type_copy.not_regular_total}")
+                    ax2.set_title(f"Not regular ${expense_type_copy.not_regular_total}")
+
+                if combined > 0:
+                    # Same arithmetic matplotlib's autopct used for the old centre pie.
+                    self.figure.suptitle(
+                        f"Total Spending ${expense_type_copy.total}, "
+                        f"{100.0 * (regular_sum / combined):.1f}% regular, "
+                        f"{100.0 * (not_regular_sum / combined):.1f}% not regular"
+                    )
+                else:
+                    print("No expenses.")
+
+                if legend_entries:
+                    self.figure.legend(
+                        handles=[
+                            Patch(facecolor=color, label=name)
+                            for name, color in legend_entries
+                        ],
+                        loc="lower center",
+                        ncol=min(len(legend_entries), 5),
+                    )
+                    self.figure.subplots_adjust(bottom=0.2)
 
         self.canvas.draw()
 
