@@ -905,8 +905,9 @@ class CategoriesWindow(QWidget):
         super().__init__()
 
         self.expense_mode = True
-        self.switch_x = 200
+        self.switch_x = 40  # Left edge of the category trees below it.
         self.switch_y = 20
+        self.delete_x = 440
         self.initUI()
 
     def initUI(self):
@@ -1000,7 +1001,7 @@ class CategoriesWindow(QWidget):
 
     def init_button_delete(self):
         self.button_delete = QPushButton("Delete", self)
-        self.button_delete.setGeometry(self.switch_x + 240, self.switch_y + 90, 120, 60)
+        self.button_delete.setGeometry(self.delete_x, self.switch_y + 90, 120, 60)
         self.button_delete.setStyleSheet("font-size: 20px;")
         self.button_delete.setDisabled(True)
 
