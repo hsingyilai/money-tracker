@@ -10,7 +10,7 @@ from anytree import Node, PreOrderIter
 from anytree.exporter import JsonExporter
 from anytree.importer import JsonImporter
 
-from .models import ExpenseEntry, IncomeEntry
+from .models import DEFAULT_CATEGORY_COLOR, ExpenseEntry, IncomeEntry
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SETTINGS_FILE = PROJECT_DIR / "local_settings.json"  # per device, not committed
@@ -101,11 +101,20 @@ def prune_backups(keep: int = MAX_BACKUPS) -> None:
 
 
 def default_expense_categories() -> Node:
-    return Node("All Categories", notes=["note"])
+    return Node("All Categories", notes=["note"], color=DEFAULT_CATEGORY_COLOR)
 
 
 def default_income_categories() -> Node:
-    return Node("All Income Types")
+    return Node("All Income Types", color=DEFAULT_CATEGORY_COLOR)
+
+
+def _with_colors(root: Node) -> Node:
+    """Give every category without a colour (a file written before colours
+    existed) the default one, so the rest of the app can rely on it."""
+    for node in PreOrderIter(root):
+        if not hasattr(node, "color"):
+            node.color = DEFAULT_CATEGORY_COLOR
+    return root
 
 
 def check_data_location() -> None:
@@ -165,7 +174,7 @@ def load_incomes(path: Path = INCOMES_FILE) -> list[IncomeEntry]:
 def load_expense_categories(path: Path = EXPENSE_CATEGORIES_FILE) -> Node:
     try:
         with open(path, "r") as f:
-            return JsonImporter().read(f)
+            return _with_colors(JsonImporter().read(f))
     except FileNotFoundError:
         return default_expense_categories()
 
@@ -173,7 +182,7 @@ def load_expense_categories(path: Path = EXPENSE_CATEGORIES_FILE) -> Node:
 def load_income_categories(path: Path = INCOME_CATEGORIES_FILE) -> Node:
     try:
         with open(path, "r") as f:
-            return JsonImporter().read(f)
+            return _with_colors(JsonImporter().read(f))
     except FileNotFoundError:
         return default_income_categories()
 

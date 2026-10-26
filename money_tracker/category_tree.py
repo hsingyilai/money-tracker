@@ -5,8 +5,12 @@ The old code hand-rolled the anytree -> QTreeWidget sync in four places
 This widget owns that sync so there is a single copy of it.
 """
 from anytree import LevelOrderIter, Node, PreOrderIter
-from PyQt6.QtWidgets import QTreeWidget, QTreeWidgetItem
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPalette
+from PyQt6.QtWidgets import QStyledItemDelegate, QTreeWidget, QTreeWidgetItem
 
+from .color_wheel import qcolor_or_default
+from .models import DEFAULT_CATEGORY_COLOR
 from .styles import TREE_WIDGET
 
 
@@ -18,12 +22,23 @@ class CategoryTreeItem(QTreeWidgetItem):
         self.anytree_node: Node | None = None
 
 
+class KeepTextColorDelegate(QStyledItemDelegate):
+    """Draws a selected row's text in its own colour, not the white highlight text."""
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        brush = index.data(Qt.ItemDataRole.ForegroundRole)
+        if brush is not None:
+            option.palette.setBrush(QPalette.ColorRole.HighlightedText, brush)
+
+
 class CategoryTree(QTreeWidget):
     def __init__(self, root: Node, parent=None):
         super().__init__(parent)
         self.setColumnCount(1)
         self.setHeaderHidden(True)
         self.setStyleSheet(TREE_WIDGET)
+        self.setItemDelegate(KeepTextColorDelegate(self))
         self._root = root
         self._items: list[CategoryTreeItem] = []
         self.rebuild()
@@ -39,6 +54,7 @@ class CategoryTree(QTreeWidget):
         for i, node in enumerate(LevelOrderIter(self._root)):
             item = CategoryTreeItem()
             item.setText(0, node.name)
+            item.setForeground(0, qcolor_or_default(getattr(node, "color", None)))
             item.anytree_node = node
             node.index = i  # back-pointer used while wiring up children
             self._items.append(item)
@@ -72,17 +88,23 @@ class CategoryTree(QTreeWidget):
     # -- editing ---------------------------------------------------------
     def add_child(self, parent_node: Node, name: str, **attrs) -> Node:
         """Add a child under ``parent_node`` and select it."""
+        attrs.setdefault("color", DEFAULT_CATEGORY_COLOR)
         new_node = Node(name, parent=parent_node, **attrs)
         new_node.index = len(self._items)
 
         item = CategoryTreeItem()
         item.setText(0, name)
+        item.setForeground(0, qcolor_or_default(new_node.color))
         item.anytree_node = new_node
         self._items[parent_node.index].addChild(item)
         self._items.append(item)
 
         self.select_node(new_node)
         return new_node
+
+    def set_node_color(self, node: Node) -> None:
+        """Show the node's colour on its row of the widget."""
+        self._items[node.index].setForeground(0, qcolor_or_default(node.color))
 
     def rename_node(self, node: Node, new_name: str) -> None:
         """Rename a category in the anytree tree and in the widget mirroring it."""

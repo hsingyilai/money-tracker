@@ -8,8 +8,18 @@ SWITCH_LABEL_INACTIVE = "background-color: #ecffe6;font-size: 16px;"
 NAV_TITLE_LABEL = "background-color: #41e8a0;font-weight: bold;font-size: 18px;"
 NAV_BUTTON = "font-size: 18px;"
 
-# Category tree widgets.
-TREE_WIDGET = "font-size: 18px;"
+# Category tree widgets. The selected row gets a pale highlight (rather than the
+# default blue) so the category's own text colour stays visible on it. (Don't
+# style ::branch here: that replaces the expand/collapse arrows.)
+TREE_WIDGET = """
+    QTreeWidget {
+        font-size: 18px;
+    }
+    QTreeWidget::item:selected {
+        background: #e3ecf7;
+        border: 1px solid #7aa7d8;
+    }
+"""
 
 # The borderless slider look for the QCheckBox used as an on/off switch.
 TOGGLE_CHECKBOX = """
@@ -94,19 +104,3 @@ CHART_REGULAR = "#4c78a8"
 CHART_NOT_REGULAR = "#f58518"
 CHART_POSITIVE = SELECTION_GREEN
 CHART_NEGATIVE = "#c0392b"
-
-# One colour per top-level expense category, shared by the Summary pie charts.
-# These are matplotlib's default cycle; the list repeats if there are more
-# categories than colours.
-CHART_CATEGORY_COLORS = (
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
-    "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#e377c2",
-    "#7f7f7f",
-    "#bcbd22",
-    "#17becf",
-)

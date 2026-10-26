@@ -1,5 +1,9 @@
 """Data classes for the entries stored by the app."""
 
+# The colour a category has until one is picked: what the colour picker returns
+# for black.
+DEFAULT_CATEGORY_COLOR = "#000000"
+
 
 class IncomeEntry:
     """An entry to the income list.

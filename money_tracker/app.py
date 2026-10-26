@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QComboBox,
+    QSlider,
     QSpinBox,
     QStyleFactory,
 )
@@ -35,6 +36,7 @@ from pint import UnitRegistry
 
 from . import graph_data, persistence, styles
 from .category_tree import CategoryTree
+from .color_wheel import ColorWheel, qcolor_or_default
 from .models import ExpenseEntry, IncomeEntry
 from .formatting import (
     expense_to_Qstring,
@@ -64,6 +66,28 @@ def parse_weight_lb(text: str) -> float | None:
     return magnitude
 
 
+def category_colors(root: Node) -> dict[str, str]:
+    """Every category's name mapped to its colour."""
+    return {node.name: node.color for node in PreOrderIter(root)}
+
+
+def entry_items(entries, root: Node, to_strings) -> list[QListWidgetItem]:
+    """List rows for `entries`, newest first (the order `to_strings` gives),
+    each written in the colour of its category in the tree `root`."""
+    colors = category_colors(root)
+    items = []
+    for text, entry in zip(to_strings(entries), reversed(entries)):
+        item = QListWidgetItem(text)
+        item.setForeground(qcolor_or_default(colors.get(entry.category)))
+        items.append(item)
+    return items
+
+
+def add_entry_items(list_widget: QListWidget, entries, root: Node, to_strings) -> None:
+    for item in entry_items(entries, root, to_strings):
+        list_widget.addItem(item)
+
+
 # Matches the `regular` values written by list_add() for "Every X months"
 # (X being any integer), and nothing else - not "Regular", "Irregular", or
 # "Regular but not monthly".
@@ -77,8 +101,8 @@ qtoday = QDate(date_now.year, date_now.month, date_now.day)
 # App-wide data. Populated by load_data() before the main window is built.
 expense_list: list[ExpenseEntry] = []
 income_list: list[IncomeEntry] = []
-expense_type: Node = Node("All Categories", notes=["note"])
-income_type: Node = Node("All Income Types")
+expense_type: Node = persistence.default_expense_categories()
+income_type: Node = persistence.default_income_categories()
 trip_list: list[str] = []
 
 # Stores the removed entries as a stack of ExpenseEntry or IncomeEntry
@@ -368,7 +392,7 @@ class InputWindow(QWidget):
                 self.switch_x + 95, self.switch_y, 230, 40
             )
             self.list.clear()
-            self.list.addItems(income_to_Qstring(income_list))
+            add_entry_items(self.list, income_list, income_type, income_to_Qstring)
             self.expense_mode = False
             self.income_tree.setVisible(True)
             self.expense_tree.setVisible(False)
@@ -396,7 +420,7 @@ class InputWindow(QWidget):
                 self.switch_x + 230, self.switch_y, 95, 30
             )
             self.list.clear()
-            self.list.addItems(expense_to_Qstring(expense_list))
+            add_entry_items(self.list, expense_list, expense_type, expense_to_Qstring)
             self.expense_mode = True
             self.income_tree.setVisible(False)
             self.expense_tree.setVisible(True)
@@ -672,7 +696,7 @@ class InputWindow(QWidget):
 
         self.list = QListWidget(self)
         self.list.setGeometry(self.list_x, 65, 330, 475)
-        self.list.addItems(expense_to_Qstring(expense_list))
+        add_entry_items(self.list, expense_list, expense_type, expense_to_Qstring)
         self.list.setStyleSheet(styles.LIST_WIDGET)
         self.list.itemClicked.connect(self.list_clicked)
 
@@ -790,19 +814,18 @@ class InputWindow(QWidget):
         if self.expense_mode:
             entry = removed_expense.pop(-1)
             index = insort_by_date(expense_list, entry)
-            q_list_entry = expense_to_Qstring([entry])
+            new_item = entry_items([entry], expense_type, expense_to_Qstring)[0]
             display_index = len(expense_list) - 1 - index
             if len(removed_expense) == 0:
                 self.button_add_back.setDisabled(True)
         else:
             entry = removed_income.pop(-1)
             index = insort_by_date(income_list, entry)
-            q_list_entry = income_to_Qstring([entry])
+            new_item = entry_items([entry], income_type, income_to_Qstring)[0]
             display_index = len(income_list) - 1 - index
             if len(removed_income) == 0:
                 self.button_add_back.setDisabled(True)
 
-        new_item = QListWidgetItem(q_list_entry[0])
         self.list.insertItem(display_index, new_item)
         self.list.scrollToItem(new_item)
 
@@ -826,9 +849,9 @@ class InputWindow(QWidget):
 
         self.list.clear()
         if self.expense_mode:
-            self.list.addItems(expense_to_Qstring(expense_list))
+            add_entry_items(self.list, expense_list, expense_type, expense_to_Qstring)
         else:
-            self.list.addItems(income_to_Qstring(income_list))
+            add_entry_items(self.list, income_list, income_type, income_to_Qstring)
 
 
 # wrap list editing into a single function to prevent mistake
@@ -868,13 +891,12 @@ def list_add(inputwindow: InputWindow):
 
     # Update QListWidget (displayed newest-date-first, the reverse of the list)
     if inputwindow.expense_mode:
-        q_list_entry = expense_to_Qstring([entry])
+        new_item = entry_items([entry], expense_type, expense_to_Qstring)[0]
         display_index = len(expense_list) - 1 - index
     else:
-        q_list_entry = income_to_Qstring([entry])
+        new_item = entry_items([entry], income_type, income_to_Qstring)[0]
         display_index = len(income_list) - 1 - index
 
-    new_item = QListWidgetItem(q_list_entry[0])
     inputwindow.list.insertItem(display_index, new_item)
     inputwindow.list.scrollToItem(new_item)
 
@@ -934,6 +956,48 @@ class CategoriesWindow(QWidget):
         self.init_notes()
         self.init_rename()
         self.init_button_delete()
+        self.init_color_picker()
+
+    def init_color_picker(self):
+        """The colour wheel and its brightness slider, to the right of the
+        category widgets. Not linked to any category yet."""
+        x, size = 440, 260
+        self.color_wheel = ColorWheel(QColor("#1f77b4"))
+        self.color_wheel.setParent(self)
+        self.color_wheel.setGeometry(x, self.switch_y, size, size)
+
+        self.label_brightness = QLabel("Brightness", self)
+        self.label_brightness.setGeometry(x, self.switch_y + size + 5, size, 20)
+
+        self.brightness_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self.brightness_slider.setRange(0, 255)
+        self.brightness_slider.setValue(round(self.color_wheel.value * 255))
+        self.brightness_slider.setGeometry(x, self.switch_y + size + 30, size, 24)
+        self.brightness_slider.valueChanged.connect(
+            lambda value: self.color_wheel.set_value(value / 255)
+        )
+        self.show_category_color()
+        self.color_wheel.colorChanged.connect(self.change_category_color)
+
+    def change_category_color(self, color: QColor):
+        """Give the highlighted category the colour picked, live."""
+        node = self.selected_node()
+        if node is None:
+            return
+        node.color = color.name()
+        self.active_tree().set_node_color(node)
+
+    def show_category_color(self):
+        """Point the colour picker at the highlighted category's colour. With
+        nothing highlighted it keeps showing what it had."""
+        node = self.selected_node()
+        if node is None:
+            return
+        color = qcolor_or_default(node.color)
+        self.color_wheel.set_color(color)
+        self.brightness_slider.blockSignals(True)  # The wheel already shows it.
+        self.brightness_slider.setValue(round(color.valueF() * 255))
+        self.brightness_slider.blockSignals(False)
 
     def init_expense_income_switch(self):
         self.label_switch_expense = QLabel("Expense", self)
@@ -1006,6 +1070,7 @@ class CategoriesWindow(QWidget):
         self.expense_tree.itemClicked.connect(self.category_selected)
         self.expense_tree.currentItemChanged.connect(self.load_notes)
         self.expense_tree.itemSelectionChanged.connect(self.update_rename_button)
+        self.expense_tree.itemSelectionChanged.connect(self.show_category_color)
 
         self.income_tree = CategoryTree(income_type, self)
         self.income_tree.setGeometry(*geometry)
@@ -1013,6 +1078,7 @@ class CategoriesWindow(QWidget):
         self.income_tree.itemClicked.connect(self.category_selected)
         self.income_tree.currentItemChanged.connect(self.load_notes)
         self.income_tree.itemSelectionChanged.connect(self.update_rename_button)
+        self.income_tree.itemSelectionChanged.connect(self.show_category_color)
 
     def active_tree(self) -> CategoryTree:
         return self.expense_tree if self.expense_mode else self.income_tree
@@ -1353,6 +1419,7 @@ class SummaryWindow(QWidget):
         if self.summary_type.currentText() == "Summarize a trip":
             plot_category = []
             plot_value = []
+            plot_colors = []
             for category in PreOrderIter(expense_type_copy):
                 if category.total > 0:
                     print(
@@ -1361,6 +1428,7 @@ class SummaryWindow(QWidget):
                     if len(category.children) == 0:
                         plot_category.append(category.name + f" ${category.total}")
                         plot_value.append(category.total)
+                        plot_colors.append(qcolor_or_default(category.color).name())
         else:
             regular_labels = []
             regular_value = []
@@ -1376,11 +1444,10 @@ class SummaryWindow(QWidget):
                     f"{len(category.ancestors) * '   '}{category.name}: ${category.total}"
                 )
 
-            # A category keeps the same colour in both pies (and in every period),
-            # so it is picked by its position among all top-level categories.
-            palette = styles.CHART_CATEGORY_COLORS
-            for i, child in enumerate(expense_type_copy.children):
-                color = palette[i % len(palette)]
+            # A category is drawn in its own colour, so it looks the same in both
+            # pies and in every period.
+            for child in expense_type_copy.children:
+                color = qcolor_or_default(child.color).name()
                 if child.regular_total > 0:
                     regular_labels.append(f"${child.regular_total}")
                     regular_value.append(child.regular_total)
@@ -1479,7 +1546,12 @@ class SummaryWindow(QWidget):
                 # Create an axes object and plot data
                 ax = self.figure.add_subplot(111)
                 plot_title = self.select.currentText() + f"\n${expense_type_copy.total}"
-                ax.pie(plot_value, labels=plot_category, autopct="%1.1f%%")
+                ax.pie(
+                    plot_value,
+                    labels=plot_category,
+                    colors=plot_colors,
+                    autopct="%1.1f%%",
+                )
                 ax.set_title(plot_title)
             case "Summarize by time":
                 regular_sum = sum(regular_value)
@@ -1567,7 +1639,7 @@ class PeriodicWindow(QWidget):
         periodic_expenses = [
             entry for entry in expense_list if PERIODIC_REGEX.match(entry.regular)
         ]
-        self.list.addItems(expense_to_Qstring(periodic_expenses))
+        add_entry_items(self.list, periodic_expenses, expense_type, expense_to_Qstring)
 
 
 class GraphWindow(QWidget):
