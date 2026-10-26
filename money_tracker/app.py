@@ -907,14 +907,30 @@ class CategoriesWindow(QWidget):
         super().__init__()
 
         self.expense_mode = True
-        self.switch_x = 40  # Left edge of the category trees below it.
+        self.switch_x = 40  # Left edge of the widgets below it.
         self.switch_y = 20
-        self.delete_x = 440
+        # Top to bottom: the switch, the Delete button, then the category tree.
+        self.tree_width = 324
+        self.add_button_size = (114, 40)  # The Add button; Delete is sized from it.
+        add_height = self.add_button_size[1]
+        self.tree_bottom = self.switch_y + 320  # Fixed; the tree grows upwards.
+        self.add_y = self.tree_bottom + 2
+        self.notes_y = self.tree_bottom + 32
+        notes_frame_y = self.notes_y + 9  # The form's layout margin is 9 px.
+        # Delete sits like Add does: the same gap below the switch as Add has
+        # below the tree, and the same gap above the tree as Add has above the
+        # notes field (negative: their edges overlap by a pixel).
+        gap_add_tree = self.add_y - self.tree_bottom
+        gap_add_notes = notes_frame_y - (self.add_y + add_height)
+        self.delete_y = self.switch_y + 40 + gap_add_tree
+        self.tree_y = self.delete_y + add_height + gap_add_notes + 4
         self.initUI()
 
     def initUI(self):
         self.init_expense_income_switch()
         self.init_category_tree()
+        self.init_add_subcategory()
+        self.init_notes()
         self.init_button_delete()
 
     def init_expense_income_switch(self):
@@ -952,6 +968,7 @@ class CategoriesWindow(QWidget):
             self.expense_mode = False
             self.income_tree.setVisible(True)
             self.expense_tree.setVisible(False)
+            self.expense_notes.setVisible(False)
             self.income_tree.clearSelection()
             self.button_delete.setDisabled(True)
         else:  # Expense mode.
@@ -970,20 +987,106 @@ class CategoriesWindow(QWidget):
             self.expense_mode = True
             self.income_tree.setVisible(False)
             self.expense_tree.setVisible(True)
+            self.expense_notes.setVisible(True)
             self.expense_tree.clearSelection()
             self.button_delete.setDisabled(True)
 
+        # A name typed before switching has to be checked against the other
+        # mode's categories, and nothing is selected to add it under yet.
+        self.update_add_category_button()
+
     def init_category_tree(self):
-        geometry = (40, self.switch_y + 50, 324, 200)
+        geometry = (40, self.tree_y, self.tree_width, self.tree_bottom - self.tree_y)
 
         self.expense_tree = CategoryTree(expense_type, self)
         self.expense_tree.setGeometry(*geometry)
         self.expense_tree.itemClicked.connect(self.category_selected)
+        self.expense_tree.currentItemChanged.connect(self.load_notes)
 
         self.income_tree = CategoryTree(income_type, self)
         self.income_tree.setGeometry(*geometry)
         self.income_tree.setVisible(False)
         self.income_tree.itemClicked.connect(self.category_selected)
+        self.income_tree.currentItemChanged.connect(self.load_notes)
+
+    def active_tree(self) -> CategoryTree:
+        return self.expense_tree if self.expense_mode else self.income_tree
+
+    def selected_node(self) -> Node | None:
+        """The category highlighted in the tree, or None if nothing is."""
+        items = self.active_tree().selectedItems()
+        return items[0].anytree_node if items else None
+
+    def load_notes(self):
+        self.new_category.clear()
+        self.update_add_category_button()
+        if self.expense_mode:
+            node = self.expense_tree.current_node()
+            if node is not None and hasattr(node, "notes"):
+                self.expense_notes.assign_content(node.notes)
+
+    def init_add_subcategory(self):
+        self.new_category = QLineEdit(self)
+        self.new_category.setStyleSheet("font-size: 16px;")
+        self.new_category.setGeometry(self.switch_x, self.tree_bottom + 7, 200, 30)
+        self.new_category.setPlaceholderText("new subcategory")
+        self.add_category = QPushButton("Add", self)
+        self.add_category.setStyleSheet("font-size: 16px;")
+        self.add_category.setEnabled(False)
+        add_width, add_height = self.add_button_size
+        self.add_category.setGeometry(
+            self.switch_x + self.tree_width - add_width,
+            self.add_y,
+            add_width,
+            add_height,
+        )
+
+        self.new_category.textChanged.connect(self.entering_category)
+        self.add_category.clicked.connect(self.add_new_category)
+
+    def update_add_category_button(self):
+        """Enable "Add" only for a non-empty name no existing category has, and
+        only while a category is highlighted to add it under."""
+        name = self.new_category.text()
+        self.add_category.setEnabled(
+            name != ""
+            and not self.active_tree().has_name(name)
+            and self.selected_node() is not None
+        )
+
+    def entering_category(self):
+        self.update_add_category_button()
+
+        if self.expense_mode:
+            self.expense_notes.enable_button()
+
+    def add_new_category(self):
+        parent = self.selected_node()
+        if parent is None:
+            return
+        self.add_category.setEnabled(False)
+
+        # Update the anytree category tree (and the widget mirroring it).
+        if self.expense_mode:
+            form = self.expense_notes.form_layout
+            # Every row but the last (the "new note" box) names a note.
+            notes_list = [
+                form.itemAt(i, QFormLayout.ItemRole.LabelRole).widget().text()
+                for i in range(form.rowCount() - 1)
+            ]
+            self.expense_tree.add_child(parent, self.new_category.text(), notes=notes_list)
+        else:
+            self.income_tree.add_child(parent, self.new_category.text())
+
+        self.new_category.clear()
+        # The new category is now the highlighted one.
+        self.button_delete.setDisabled(False)
+
+    def init_notes(self):
+        self.expense_notes = ScrollableFormApp()
+        self.expense_notes.setParent(self)
+        self.expense_notes.setGeometry(self.switch_x - 12, self.notes_y, 348, 130)
+        self.expense_notes.assign_content(expense_type.notes)
 
     def category_selected(self, item, column):
         if self.expense_mode:
@@ -1003,8 +1106,16 @@ class CategoriesWindow(QWidget):
 
     def init_button_delete(self):
         self.button_delete = QPushButton("Delete", self)
-        self.button_delete.setGeometry(self.delete_x, self.switch_y + 90, 120, 60)
-        self.button_delete.setStyleSheet("font-size: 20px;")
+        # Right-aligned with the tree; the Add button's height and font, 3/4 of its width.
+        add_width, add_height = self.add_button_size
+        delete_width = round(add_width * 3 / 4)
+        self.button_delete.setGeometry(
+            self.switch_x + self.tree_width - delete_width,
+            self.delete_y,
+            delete_width,
+            add_height,
+        )
+        self.button_delete.setStyleSheet("font-size: 16px;")
         self.button_delete.setDisabled(True)
 
         self.button_delete.clicked.connect(self.delete_category)
