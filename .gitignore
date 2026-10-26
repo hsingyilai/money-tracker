@@ -92,3 +92,6 @@ target/
 # files that store personal datas and backups
 user_data/
 
+# per-device setting: where this computer keeps its (synced) user_data folder
+local_settings.json
+

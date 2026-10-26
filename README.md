@@ -12,11 +12,35 @@ python -m pip install -r requirements.txt
 python main_app.py
 ```
 
-The app reads and writes four JSON files in `user_data/current/` inside the
-project folder: `my_expenses.json`, `my_incomes.json`,
-`expense_categories.json`, `income_categories.json`. If the folder or any file
-is missing, it is created (empty) at startup. See the link above for their
-format.
+The app reads and writes four JSON files in `user_data/current/`:
+`my_expenses.json`, `my_incomes.json`, `expense_categories.json`,
+`income_categories.json`. A timestamped copy is made in `user_data/back_up_*`
+at every start (the newest 10 are kept). See the link above for their format.
+
+By default `user_data/` sits inside the project folder, and any missing folder
+or file is created (empty) at startup.
+
+### Keeping the data in a synced folder
+
+To use the same data on several computers, keep `user_data/` in a folder your
+sync service (Google Drive, OneDrive, Dropbox, ...) keeps up to date, and tell
+each computer where it is. Create `local_settings.json` in the project folder
+(it is not committed, since the path differs per computer):
+
+```json
+{
+    "user_data_dir": "C:/Users/me/Google Drive/expense_data/user_data"
+}
+```
+
+Use forward slashes, even on Windows. `~` and paths relative to the project
+folder also work. The environment variable `MONEY_TRACKER_USER_DATA` overrides
+the file.
+
+With a custom folder the app never creates empty data files: if the folder or a
+file is missing (a new computer that has not finished syncing, a mistyped path)
+it stops with a message instead. Use the app on one computer at a time, and let
+the sync finish before opening it on another.
 
 ## Layout
 

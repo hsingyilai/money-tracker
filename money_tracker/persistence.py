@@ -1,5 +1,6 @@
 """Loading and saving of the JSON files that hold the user's data."""
 import json
+import os
 import re
 import shutil
 from datetime import datetime
@@ -11,9 +12,48 @@ from anytree.importer import JsonImporter
 
 from .models import ExpenseEntry, IncomeEntry
 
-# Anchored to the project folder (the parent of this package) so the data is
-# found wherever the app is launched from.
-DATA_DIR = Path(__file__).resolve().parent.parent / "user_data" / "current"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+SETTINGS_FILE = PROJECT_DIR / "local_settings.json"  # per device, not committed
+USER_DATA_ENV_VAR = "MONEY_TRACKER_USER_DATA"
+
+
+def _find_user_data_dir() -> tuple[Path, str | None]:
+    """Work out which user_data folder (the one holding current/ and the
+    back_up_* folders) to use, so it can live in a cloud-synced folder.
+
+    In order of priority: the MONEY_TRACKER_USER_DATA environment variable,
+    then "user_data_dir" in local_settings.json, then <project>/user_data.
+    Returns (folder, where it was set); the second part is None for the default.
+    """
+    where = None
+    value = os.environ.get(USER_DATA_ENV_VAR)
+    if value:
+        where = f"the {USER_DATA_ENV_VAR} environment variable"
+    elif SETTINGS_FILE.exists():
+        try:
+            settings = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+            if not isinstance(settings, dict):
+                raise ValueError("expected a JSON object like {\"user_data_dir\": \"...\"}")
+        except (OSError, ValueError) as error:  # JSONDecodeError is a ValueError
+            raise RuntimeError(
+                f"Could not read {SETTINGS_FILE}: {error}\n"
+                'Write the path with forward slashes, e.g. "C:/Users/me/user_data" '
+                "(or double every backslash)."
+            ) from error
+        value = settings.get("user_data_dir")
+        where = SETTINGS_FILE.name
+    if not value:
+        return PROJECT_DIR / "user_data", None
+
+    folder = Path(value).expanduser()
+    if not folder.is_absolute():
+        folder = PROJECT_DIR / folder
+    return folder, where
+
+
+USER_DATA_DIR, DATA_LOCATION_SOURCE = _find_user_data_dir()
+USING_CUSTOM_LOCATION = DATA_LOCATION_SOURCE is not None
+DATA_DIR = USER_DATA_DIR / "current"
 EXPENSES_FILE = DATA_DIR / "my_expenses.json"
 INCOMES_FILE = DATA_DIR / "my_incomes.json"
 EXPENSE_CATEGORIES_FILE = DATA_DIR / "expense_categories.json"
@@ -26,7 +66,7 @@ DATA_FILES = (
 )
 
 # Backups sit next to current/ as user_data/back_up_<date>_<time>.
-BACKUP_PARENT = DATA_DIR.parent
+BACKUP_PARENT = USER_DATA_DIR
 MAX_BACKUPS = 10
 _BACKUP_NAME = re.compile(r"back_up_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}")
 
@@ -66,6 +106,27 @@ def default_expense_categories() -> Node:
 
 def default_income_categories() -> Node:
     return Node("All Income Types")
+
+
+def check_data_location() -> None:
+    """With a custom (usually cloud-synced) data folder, stop unless all four
+    data files are already there.
+
+    Starting with an empty folder would create blank files that could clash with
+    the real data once a sync catches up (a new device that hasn't finished
+    downloading, a drive that isn't mounted, a mistyped path). The default
+    location is not checked: there missing files are simply created.
+    """
+    if not USING_CUSTOM_LOCATION:
+        return
+    missing = [file.name for file in DATA_FILES if not file.exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"Can't find your data in {DATA_DIR} (folder set by {DATA_LOCATION_SOURCE}).\n"
+            f"Missing: {', '.join(missing)}\n"
+            "If this is a new device, wait for your sync to finish and try again. "
+            "The app won't create empty files in a custom data folder."
+        )
 
 
 def ensure_data_files() -> None:

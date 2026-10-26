@@ -89,6 +89,7 @@ removed_income = []
 def load_data():
     """Read the user's data files into the module-level state."""
     global expense_list, income_list, expense_type, income_type, trip_list
+    persistence.check_data_location()
     persistence.backup_data_files()
     persistence.ensure_data_files()
     expense_list = persistence.load_expenses()
@@ -1492,6 +1493,7 @@ class GraphWindow(QWidget):
 
 def main():
     app = QApplication(sys.argv)
+    print(f"Data folder: {persistence.USER_DATA_DIR}")
     load_data()
     main_window = MainWindow()
     main_window.setWindowTitle("Money Tracker")
