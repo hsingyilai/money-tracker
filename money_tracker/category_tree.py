@@ -84,6 +84,11 @@ class CategoryTree(QTreeWidget):
         self.select_node(new_node)
         return new_node
 
+    def rename_node(self, node: Node, new_name: str) -> None:
+        """Rename a category in the anytree tree and in the widget mirroring it."""
+        node.name = new_name
+        self._items[node.index].setText(0, new_name)
+
     def remove_current(self) -> Node | None:
         """Detach the selected node from the tree and return it."""
         item = self.currentItem()

@@ -913,6 +913,7 @@ class CategoriesWindow(QWidget):
         self.tree_width = 324
         self.add_button_size = (114, 40)  # The Add button; Delete is sized from it.
         add_height = self.add_button_size[1]
+        self.delete_size = (round(self.add_button_size[0] * 3 / 4), add_height)
         self.tree_bottom = self.switch_y + 320  # Fixed; the tree grows upwards.
         self.add_y = self.tree_bottom + 2
         self.notes_y = self.tree_bottom + 32
@@ -931,6 +932,7 @@ class CategoriesWindow(QWidget):
         self.init_category_tree()
         self.init_add_subcategory()
         self.init_notes()
+        self.init_rename()
         self.init_button_delete()
 
     def init_expense_income_switch(self):
@@ -994,6 +996,7 @@ class CategoriesWindow(QWidget):
         # A name typed before switching has to be checked against the other
         # mode's categories, and nothing is selected to add it under yet.
         self.update_add_category_button()
+        self.update_rename_button()
 
     def init_category_tree(self):
         geometry = (40, self.tree_y, self.tree_width, self.tree_bottom - self.tree_y)
@@ -1002,12 +1005,14 @@ class CategoriesWindow(QWidget):
         self.expense_tree.setGeometry(*geometry)
         self.expense_tree.itemClicked.connect(self.category_selected)
         self.expense_tree.currentItemChanged.connect(self.load_notes)
+        self.expense_tree.itemSelectionChanged.connect(self.update_rename_button)
 
         self.income_tree = CategoryTree(income_type, self)
         self.income_tree.setGeometry(*geometry)
         self.income_tree.setVisible(False)
         self.income_tree.itemClicked.connect(self.category_selected)
         self.income_tree.currentItemChanged.connect(self.load_notes)
+        self.income_tree.itemSelectionChanged.connect(self.update_rename_button)
 
     def active_tree(self) -> CategoryTree:
         return self.expense_tree if self.expense_mode else self.income_tree
@@ -1019,6 +1024,7 @@ class CategoriesWindow(QWidget):
 
     def load_notes(self):
         self.new_category.clear()
+        self.rename_category.clear()
         self.update_add_category_button()
         if self.expense_mode:
             node = self.expense_tree.current_node()
@@ -1104,16 +1110,79 @@ class CategoriesWindow(QWidget):
         self.expense_tree.set_root(expense_type)
         self.income_tree.set_root(income_type)
 
+    def init_rename(self):
+        """The rename box and button, left of Delete. They don't do anything yet."""
+        button_width, button_height = self.delete_size
+        gap = 10
+        delete_x = self.switch_x + self.tree_width - button_width
+        rename_x = delete_x - gap - button_width
+
+        self.button_rename = QPushButton("Rename", self)
+        self.button_rename.setStyleSheet("font-size: 16px;")
+        self.button_rename.setGeometry(rename_x, self.delete_y, button_width, button_height)
+
+        # Same look as the new-subcategory box, vertically centred on the buttons.
+        box_height = 30
+        self.rename_category = QLineEdit(self)
+        self.rename_category.setStyleSheet("font-size: 16px;")
+        self.rename_category.setPlaceholderText("new name")
+        self.rename_category.setGeometry(
+            self.switch_x,
+            self.delete_y + (button_height - box_height) // 2,
+            rename_x - gap - self.switch_x,
+            box_height,
+        )
+
+        self.rename_category.textChanged.connect(self.update_rename_button)
+        self.button_rename.clicked.connect(self.rename_clicked)
+        self.update_rename_button()
+
+    def update_rename_button(self):
+        """Rename is available only while a name is typed that no category has
+        yet (the same rule as Add), and a category is highlighted. The root
+        ("All Categories" / "All Income Types") can't be renamed, as it can't
+        be deleted: other code recognises it by name."""
+        name = self.rename_category.text()
+        node = self.selected_node()
+        self.button_rename.setEnabled(
+            name != ""
+            and not self.active_tree().has_name(name)
+            and node is not None
+            and node.parent is not None
+        )
+
+    def rename_clicked(self):
+        tree = self.active_tree()
+        node = self.selected_node()
+        new_name = self.rename_category.text()
+        if node is None or node.parent is None or tree.has_name(new_name):
+            return
+
+        old_name = node.name
+        tree.rename_node(node, new_name)
+        # Entries refer to their category by name, so follow the rename. That
+        # includes deleted entries that "Add back" could still restore.
+        if self.expense_mode:
+            entries = expense_list + removed_expense
+        else:
+            entries = income_list + removed_income
+        for entry in entries:
+            if entry.category == old_name:
+                entry.category = new_name
+
+        self.rename_category.clear()
+        # The old name is free again, so Add may now accept it.
+        self.update_add_category_button()
+
     def init_button_delete(self):
         self.button_delete = QPushButton("Delete", self)
         # Right-aligned with the tree; the Add button's height and font, 3/4 of its width.
-        add_width, add_height = self.add_button_size
-        delete_width = round(add_width * 3 / 4)
+        delete_width, delete_height = self.delete_size
         self.button_delete.setGeometry(
             self.switch_x + self.tree_width - delete_width,
             self.delete_y,
             delete_width,
-            add_height,
+            delete_height,
         )
         self.button_delete.setStyleSheet("font-size: 16px;")
         self.button_delete.setDisabled(True)
