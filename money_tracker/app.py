@@ -3,6 +3,7 @@ import datetime
 import math
 import re
 import sys
+import traceback
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QLineEdit,
+    QMessageBox,
     QFormLayout,
     QStackedWidget,
     QScrollArea,
@@ -25,7 +27,7 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QStyleFactory,
 )
-from PyQt6.QtCore import QDate, Qt, pyqtSignal
+from PyQt6.QtCore import QDate, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QDoubleValidator, QPalette
 from anytree import Node, PreOrderIter, PostOrderIter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -114,6 +116,7 @@ def load_data():
     """Read the user's data files into the module-level state."""
     global expense_list, income_list, expense_type, income_type, trip_list
     persistence.check_data_location()
+    persistence.check_data_files()
     persistence.backup_data_files()
     persistence.ensure_data_files()
     expense_list = persistence.load_expenses()
@@ -125,10 +128,48 @@ def load_data():
 
 def save_data():
     """Write the module-level state back to the user's data files."""
-    persistence.save_expenses(expense_list)
-    persistence.save_incomes(income_list)
-    persistence.save_categories(expense_type, persistence.EXPENSE_CATEGORIES_FILE)
-    persistence.save_categories(income_type, persistence.INCOME_CATEGORIES_FILE)
+    persistence.save_all(expense_list, income_list, expense_type, income_type)
+
+
+def show_error(message: str) -> None:
+    QMessageBox.critical(None, "Money Tracker", message)
+
+
+_save_failed = False
+
+
+def autosave() -> None:
+    """Save everything now, after each change, so a crash loses nothing. A save
+    that fails (say Google Drive isn't mounted) is reported once, not fatal."""
+    global _save_failed
+    try:
+        save_data()
+    except Exception as error:
+        traceback.print_exc()
+        if not _save_failed:
+            show_error(
+                f"Couldn't save your data:\n{error}\n\n"
+                "It will be tried again after your next change."
+            )
+        _save_failed = True
+    else:
+        _save_failed = False
+
+
+_error_dialog_open = False
+
+
+def handle_exception(exc_type, exc_value, exc_traceback) -> None:
+    """Report an uncaught error instead of letting PyQt abort the whole app."""
+    global _error_dialog_open
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    if issubclass(exc_type, KeyboardInterrupt) or _error_dialog_open:
+        return
+    _error_dialog_open = True  # A repeating error must not stack up dialogs.
+    try:
+        show_error(f"Something went wrong:\n{exc_value}\n\nDetails are in the terminal.")
+    finally:
+        _error_dialog_open = False
 
 
 # Main Window
@@ -206,7 +247,7 @@ class MainWindow(QWidget):
             page.refresh()
 
     def closeEvent(self, event):
-        save_data()
+        autosave()
         event.accept()
         super().closeEvent(event)
 
@@ -606,6 +647,7 @@ class InputWindow(QWidget):
             self.income_tree.add_child(current_category, self.new_category.text())
 
         self.new_category.clear()
+        autosave()
 
     def init_notes(self):
         self.expense_notes = ScrollableFormApp()
@@ -665,6 +707,7 @@ class InputWindow(QWidget):
         if not self.weight_note_is_valid():
             return
         list_add(self)
+        autosave()
         self.amount.clear()
         # Clear the note text for the next entry: always in income mode, and in
         # expense mode only if the category has just one note.
@@ -807,6 +850,7 @@ class InputWindow(QWidget):
         if self.index_selected is None:
             return
         list_remove(self)
+        autosave()
         self.list.clearSelection()
         self.button_add_back.setDisabled(False)
 
@@ -828,6 +872,7 @@ class InputWindow(QWidget):
 
         self.list.insertItem(display_index, new_item)
         self.list.scrollToItem(new_item)
+        autosave()
 
     def filter_list(self, text):
         if text == "":
@@ -979,6 +1024,11 @@ class CategoriesWindow(QWidget):
         self.show_category_color()
         self.color_wheel.colorChanged.connect(self.change_category_color)
 
+        self.color_save_timer = QTimer(self)
+        self.color_save_timer.setSingleShot(True)
+        self.color_save_timer.setInterval(500)
+        self.color_save_timer.timeout.connect(autosave)
+
     def change_category_color(self, color: QColor):
         """Give the highlighted category the colour picked, live."""
         node = self.selected_node()
@@ -986,6 +1036,8 @@ class CategoriesWindow(QWidget):
             return
         node.color = color.name()
         self.active_tree().set_node_color(node)
+        # The wheel reports every mouse move; save once it settles.
+        self.color_save_timer.start()
 
     def show_category_color(self):
         """Point the colour picker at the highlighted category's colour. With
@@ -1153,6 +1205,7 @@ class CategoriesWindow(QWidget):
         self.new_category.clear()
         # The new category is now the highlighted one.
         self.button_delete.setDisabled(False)
+        autosave()
 
     def init_notes(self):
         self.expense_notes = ScrollableFormApp()
@@ -1239,6 +1292,7 @@ class CategoriesWindow(QWidget):
         self.rename_category.clear()
         # The old name is free again, so Add may now accept it.
         self.update_add_category_button()
+        autosave()
 
     def init_button_delete(self):
         self.button_delete = QPushButton("Delete", self)
@@ -1259,16 +1313,23 @@ class CategoriesWindow(QWidget):
         self.button_delete.setDisabled(True)
 
         tree = self.expense_tree if self.expense_mode else self.income_tree
-        entries = expense_list if self.expense_mode else income_list
+        # Deleted entries that "Add back" could still restore count as well.
+        if self.expense_mode:
+            entries = expense_list + removed_expense
+        else:
+            entries = income_list + removed_income
 
         current_category = tree.current_node()
-        # Move any entries in the deleted category up to its parent.
+        # The whole subtree goes with the category, so move the entries of the
+        # category and of everything below it up to its parent.
         parent_name = current_category.parent.name
+        subtree_names = {node.name for node in PreOrderIter(current_category)}
         for entry in entries:
-            if entry.category == current_category.name:
+            if entry.category in subtree_names:
                 entry.category = parent_name
 
         tree.remove_current()
+        autosave()
 
 
 class SummaryWindow(QWidget):
@@ -1745,6 +1806,7 @@ class GraphWindow(QWidget):
 
 def main():
     app = QApplication(sys.argv)
+    sys.excepthook = handle_exception
     print(f"Data folder: {persistence.USER_DATA_DIR}")
     load_data()
     main_window = MainWindow()

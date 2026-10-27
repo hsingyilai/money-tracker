@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from anytree import Node, PreOrderIter
-from anytree.exporter import JsonExporter
+from anytree.exporter import DictExporter, JsonExporter
 from anytree.importer import JsonImporter
 
 from .models import DEFAULT_CATEGORY_COLOR, ExpenseEntry, IncomeEntry
@@ -71,14 +71,86 @@ MAX_BACKUPS = 10
 _BACKUP_NAME = re.compile(r"back_up_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}")
 
 
+class DataFileError(RuntimeError):
+    """A data file exists but can't be read."""
+
+
+def _backup_folders() -> list[Path]:
+    """Existing backup folders, oldest first (their names sort by time). Only
+    folders named exactly like the ones backup_data_files() makes."""
+    return sorted(
+        path
+        for path in BACKUP_PARENT.iterdir()
+        if path.is_dir() and not path.is_symlink() and _BACKUP_NAME.fullmatch(path.name)
+    )
+
+
+def _unreadable_files(folder: Path) -> list[tuple[str, Exception]]:
+    """The data files in `folder` that exist but can't be parsed."""
+    loaders = {
+        EXPENSES_FILE.name: load_expenses,
+        INCOMES_FILE.name: load_incomes,
+        EXPENSE_CATEGORIES_FILE.name: load_expense_categories,
+        INCOME_CATEGORIES_FILE.name: load_income_categories,
+    }
+    unreadable = []
+    for name, load in loaders.items():
+        file = folder / name
+        if file.exists():
+            try:
+                load(file)
+            except Exception as error:
+                unreadable.append((name, error))
+    return unreadable
+
+
+def check_data_files() -> None:
+    """Stop, with a message saying how to recover, if a data file is damaged.
+
+    Run before backing up, so a damaged file is never copied into a backup (and
+    so never pushes the good backups out), and before the app overwrites it.
+    """
+    unreadable = _unreadable_files(DATA_DIR)
+    if not unreadable:
+        return
+    problems = "\n".join(f"  {name}: {error}" for name, error in unreadable)
+    newest_good = next(
+        (folder for folder in reversed(_backup_folders()) if not _unreadable_files(folder)),
+        None,
+    )
+    advice = (
+        f"Your newest readable backup is {newest_good}.\n"
+        f"To restore it, copy its files into {DATA_DIR}."
+        if newest_good
+        else "No readable backup was found."
+    )
+    raise DataFileError(
+        f"Can't read your data in {DATA_DIR}:\n{problems}\n"
+        f"No backup was made, so your existing backups are safe.\n{advice}"
+    )
+
+
+def _same_as_newest_backup(files: list[Path]) -> bool:
+    backups = _backup_folders()
+    if not backups:
+        return False
+    newest = backups[-1]
+    data_names = {file.name for file in DATA_FILES}
+    if {file.name for file in files} != {f.name for f in newest.iterdir() if f.name in data_names}:
+        return False
+    return all((newest / file.name).read_bytes() == file.read_bytes() for file in files)
+
+
 def backup_data_files() -> Path | None:
     """Copy the data files in current/ into a new timestamped backup folder,
     then delete the oldest backups beyond MAX_BACKUPS.
 
-    Returns the new folder, or None when there is nothing to back up yet.
+    Nothing is done (None is returned) when there is nothing to back up yet, when
+    a file is damaged (a bad copy must never replace a good backup), or when the
+    files are the same as in the newest backup.
     """
     existing = [file for file in DATA_FILES if file.exists()]
-    if not existing:
+    if not existing or _unreadable_files(DATA_DIR) or _same_as_newest_backup(existing):
         return None
     folder = BACKUP_PARENT / datetime.now().strftime("back_up_%Y-%m-%d_%H-%M-%S")
     folder.mkdir(exist_ok=True)
@@ -89,15 +161,38 @@ def backup_data_files() -> Path | None:
 
 
 def prune_backups(keep: int = MAX_BACKUPS) -> None:
-    """Delete the oldest backup folders so at most `keep` remain. Only folders
-    named exactly like the ones backup_data_files() makes are ever touched."""
-    backups = sorted(
-        path
-        for path in BACKUP_PARENT.iterdir()
-        if path.is_dir() and not path.is_symlink() and _BACKUP_NAME.fullmatch(path.name)
-    )
-    for old in backups[:-keep]:
+    """Delete the oldest backup folders so at most `keep` remain."""
+    for old in _backup_folders()[:-keep]:
         shutil.rmtree(old)
+
+
+def _stage(path: Path, text: str) -> Path:
+    """Write `text` to a temp file next to `path` and return the temp file."""
+    temp = Path(path).with_name(Path(path).name + ".tmp")
+    try:
+        with open(temp, "w", encoding="utf-8", newline="\n") as f:  # same on every OS
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+    except BaseException:
+        temp.unlink(missing_ok=True)
+        raise
+    return temp
+
+
+def _write_atomically(files: dict[Path, str]) -> None:
+    """Write several files so a crash, power loss or cloud sync never leaves a
+    half-written one: every file is first written in full to a temp file, and
+    only then are the temp files swapped in, back to back."""
+    staged = []
+    try:
+        for path, text in files.items():
+            staged.append((_stage(path, text), Path(path)))
+        for temp, path in staged:
+            os.replace(temp, path)
+    finally:
+        for temp, _ in staged:
+            temp.unlink(missing_ok=True)  # Only what is left if something failed.
 
 
 def default_expense_categories() -> Node:
@@ -187,21 +282,46 @@ def load_income_categories(path: Path = INCOME_CATEGORIES_FILE) -> Node:
         return default_income_categories()
 
 
+def _entries_text(entries) -> str:
+    return json.dumps([vars(entry) for entry in entries], indent=4)
+
+
+def _without_index(attributes):
+    # `index` is the tree widget's back-pointer into its rows: it must stay on
+    # the live nodes, so it is left out of the file instead of being deleted.
+    return [(name, value) for name, value in attributes if name != "index"]
+
+
+def _categories_text(tree: Node) -> str:
+    exporter = JsonExporter(indent=2, dictexporter=DictExporter(attriter=_without_index))
+    return exporter.export(tree)
+
+
 def save_expenses(expense_list: list[ExpenseEntry], path: Path = EXPENSES_FILE) -> None:
-    with open(path, "w") as f:
-        json.dump([vars(entry) for entry in expense_list], f, indent=4)
+    _write_atomically({path: _entries_text(expense_list)})
 
 
 def save_incomes(income_list: list[IncomeEntry], path: Path = INCOMES_FILE) -> None:
-    with open(path, "w") as f:
-        json.dump([vars(entry) for entry in income_list], f, indent=4)
+    _write_atomically({path: _entries_text(income_list)})
 
 
 def save_categories(tree: Node, path: Path) -> None:
-    """Write a category tree to disk, dropping the transient ``index`` pointer
-    the widgets attach to each node."""
-    for node in PreOrderIter(tree):
-        if hasattr(node, "index"):
-            del node.index
-    with open(path, "w") as f:
-        f.write(JsonExporter(indent=2).export(tree))
+    _write_atomically({path: _categories_text(tree)})
+
+
+def save_all(
+    expense_list: list[ExpenseEntry],
+    income_list: list[IncomeEntry],
+    expense_tree: Node,
+    income_tree: Node,
+) -> None:
+    """Save the four data files together: all are written out before any is
+    replaced, so a failure part-way leaves the files as they were."""
+    _write_atomically(
+        {
+            EXPENSES_FILE: _entries_text(expense_list),
+            INCOMES_FILE: _entries_text(income_list),
+            EXPENSE_CATEGORIES_FILE: _categories_text(expense_tree),
+            INCOME_CATEGORIES_FILE: _categories_text(income_tree),
+        }
+    )

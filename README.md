@@ -14,8 +14,12 @@ python main_app.py
 
 The app reads and writes four JSON files in `user_data/current/`:
 `my_expenses.json`, `my_incomes.json`, `expense_categories.json`,
-`income_categories.json`. A timestamped copy is made in `user_data/back_up_*`
-at every start (the newest 10 are kept). See the link above for their format.
+`income_categories.json`. At start, if the data changed since the last backup, a
+timestamped copy is made in `user_data/back_up_*` (the newest 10 are kept). Files
+that can't be read are never backed up: the app stops with a message telling you
+the newest readable backup to restore. The files are saved again after every
+change (and when the app closes), so a crash loses nothing. See the link above
+for their format.
 
 By default `user_data/` sits inside the project folder, and any missing folder
 or file is created (empty) at startup.
