@@ -1556,47 +1556,48 @@ class SummaryWindow(QWidget):
 
             # Compare price if quantity (weight) is noted.
             for category in PostOrderIter(expense_type):
-                if WEIGHT_NOTE in category.notes:
-                    print("-" * 100)
-                    cheapest_per_lb = -1
-                    most_expensive = 0
-                    total_weight = 0
-                    total_cost = 0
-                    i = -1
-                    for entry in expense_list_for_summary:
-                        i += 1
-                        if entry.category == category.name:
-                            weight_in_lb = Q_(entry.notes[WEIGHT_NOTE]).to("lb")
-                            price_per_lb = entry.cost / weight_in_lb.magnitude
-                            total_weight += weight_in_lb.magnitude
-                            total_cost += entry.cost
-                            if cheapest_per_lb < 0 or price_per_lb < cheapest_per_lb:
-                                cheapest_per_lb = price_per_lb
-                                cheapest_index = i
-                            if price_per_lb > most_expensive:
-                                most_expensive = price_per_lb
-                                most_expensive_index = i
-                    try:
-                        print(
-                            f"The cheapest {category.name} is: ${round(cheapest_per_lb, 2)} per pound, with the following purchase:"
-                        )
-                        entry = expense_list_for_summary[cheapest_index]
-                        print(expense_string(entry))
-                        print(
-                            f"The most expensive {category.name}  is: ${round(most_expensive, 2)} per pound, with the following purchase:"
-                        )
-                        entry = expense_list_for_summary[most_expensive_index]
-                        print(expense_string(entry))
-                        print(
-                            f"You bought {round(total_weight, 1)} lb of {category.name} in total, ${round(total_cost / total_weight, 2)} per pound on average."
-                        )
-                        print(
-                            f"You can save ${round(total_cost - cheapest_per_lb * total_weight, 2)} if you stick with the cheapest option."
-                        )
-                    except NameError:
-                        print(f"No {category.name} was bought.")
+                if WEIGHT_NOTE not in category.notes:
+                    continue
+                print("-" * 100)
+                # (price per lb, weight in lb, entry) for each purchase whose weight
+                # can be read; entries from before the field existed, or with a
+                # weight that isn't one, are counted and left out.
+                purchases = []
+                skipped = 0
+                for entry in expense_list_for_summary:
+                    if entry.category != category.name:
+                        continue
+                    weight_lb = parse_weight_lb(entry.notes.get(WEIGHT_NOTE, ""))
+                    if weight_lb is None:
+                        skipped += 1
                     else:
-                        del cheapest_index
+                        purchases.append((entry.cost / weight_lb, weight_lb, entry))
+
+                if not purchases:
+                    print(f"No {category.name} was bought.")
+                else:
+                    cheapest = min(purchases, key=lambda purchase: purchase[0])
+                    most_expensive = max(purchases, key=lambda purchase: purchase[0])
+                    total_weight = sum(weight for _, weight, _ in purchases)
+                    total_cost = sum(entry.cost for _, _, entry in purchases)
+                    print(
+                        f"The cheapest {category.name} is: ${round(cheapest[0], 2)} per pound, with the following purchase:"
+                    )
+                    print(expense_string(cheapest[2]))
+                    print(
+                        f"The most expensive {category.name}  is: ${round(most_expensive[0], 2)} per pound, with the following purchase:"
+                    )
+                    print(expense_string(most_expensive[2]))
+                    print(
+                        f"You bought {round(total_weight, 1)} lb of {category.name} in total, ${round(total_cost / total_weight, 2)} per pound on average."
+                    )
+                    print(
+                        f"You can save ${round(total_cost - cheapest[0] * total_weight, 2)} if you stick with the cheapest option."
+                    )
+                if skipped:
+                    print(
+                        f"({skipped} {category.name} purchase(s) with no readable weight left out of this comparison.)"
+                    )
 
         # Clear the previous plot to prevent overlapping lines
         self.figure.clear()
