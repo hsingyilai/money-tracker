@@ -1709,6 +1709,7 @@ class GraphWindow(QWidget):
         "Expense by month",
         "Income minus expense by month",
         "Regular expense by month",
+        "Category by month",
     ]
 
     def __init__(self):
@@ -1717,28 +1718,47 @@ class GraphWindow(QWidget):
         self.graph_type = QComboBox(self)
         self.graph_type.setStyleSheet("font-size: 18px;")
         self.graph_type.addItems(self.GRAPH_TYPES)
-        self.graph_type.currentTextChanged.connect(self.draw)
 
         self.figure = Figure(layout="constrained")
         self.canvas = FigureCanvas(self.figure)
 
+        # Only the "Category by month" graph uses this: the chart gets 3/4 of the
+        # width and the category selector the other 1/4.
+        self.category_tree = CategoryTree(expense_type, self)
+        self.category_tree.currentItemChanged.connect(self.draw)
+
+        chart_row = QHBoxLayout()
+        chart_row.addWidget(self.canvas, stretch=3)
+        chart_row.addWidget(self.category_tree, stretch=1)
+
         layout = QVBoxLayout(self)
         layout.addWidget(self.graph_type)
-        layout.addWidget(self.canvas, stretch=1)
+        layout.addLayout(chart_row, stretch=1)
 
+        self.graph_type.currentTextChanged.connect(self.draw)
         self.draw()
 
     def refresh(self):
         """Redraw from the current data (called when the page is shown)."""
+        # Rebuild the selector from the current categories, keeping the selection.
+        node = self.category_tree.current_node()
+        selected = node.name if node is not None else None
+        self.category_tree.blockSignals(True)  # One redraw below is enough.
+        self.category_tree.set_root(expense_type)
+        if selected is not None and self.category_tree.has_name(selected):
+            self.category_tree.select_by_name(selected)
+        self.category_tree.blockSignals(False)
         self.draw()
 
-    def draw(self, _=None):
+    def draw(self, *_):
+        self.category_tree.setVisible(self.graph_type.currentText() == "Category by month")
         self.figure.clear()
         ax = self.figure.add_subplot(111)
         drawers = {
             "Expense by month": self.draw_expense_by_month,
             "Income minus expense by month": self.draw_net_by_month,
             "Regular expense by month": self.draw_regular_expense_by_month,
+            "Category by month": self.draw_category_by_month,
         }
         drawers[self.graph_type.currentText()](ax)
         ax.yaxis.set_major_formatter(FuncFormatter(self.format_dollars))
@@ -1757,8 +1777,8 @@ class GraphWindow(QWidget):
         positions = list(range(0, len(months), step))
         ax.set_xticks(positions, [months[i] for i in positions], rotation=45, ha="right")
 
-    def draw_no_data(self, ax):
-        ax.text(0.5, 0.5, "No data to graph", ha="center", va="center",
+    def draw_no_data(self, ax, message="No data to graph"):
+        ax.text(0.5, 0.5, message, ha="center", va="center",
                 transform=ax.transAxes)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -1777,6 +1797,25 @@ class GraphWindow(QWidget):
         self.set_month_ticks(ax, months)
         ax.set_ylabel("Total expense")
         ax.legend()
+
+    def draw_category_by_month(self, ax):
+        node = self.category_tree.current_node()
+        if node is None:
+            self.draw_no_data(ax)
+            return
+        # The category and everything below it; the top category means all expenses.
+        names = None if node.parent is None else {n.name for n in PreOrderIter(node)}
+        months, totals = graph_data.category_by_month(expense_list, names)
+        if not months:
+            self.draw_no_data(ax)
+            return
+        if not any(totals):
+            self.draw_no_data(ax, f"No expenses in {node.name}")
+            return
+
+        ax.bar(range(len(months)), totals, color=qcolor_or_default(node.color).name())
+        self.set_month_ticks(ax, months)
+        ax.set_ylabel(f"Expense in {node.name}")
 
     def draw_regular_expense_by_month(self, ax):
         months, regular = graph_data.regular_expense_by_month(expense_list)

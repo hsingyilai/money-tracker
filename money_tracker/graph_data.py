@@ -56,6 +56,30 @@ def expense_by_month(
     )
 
 
+def category_by_month(
+    expenses: list[ExpenseEntry], category_names: set[str] | None
+) -> tuple[list[str], list[float]]:
+    """Return (month labels, total spent in `category_names` each month).
+
+    `category_names` is the selected category and everything below it; None
+    means every expense. The months span all expenses (not only this category's),
+    so the axis stays the same whichever category is picked.
+    """
+    totals = defaultdict(float)
+    keys = []
+    for entry in expenses:
+        key = _month_key(entry.date)
+        keys.append(key)
+        if category_names is None or entry.category in category_names:
+            totals[key] += entry.cost
+
+    months = _month_span(keys)
+    return (
+        [_label(key) for key in months],
+        [round(totals.get(key, 0.0), 2) for key in months],
+    )
+
+
 def regular_expense_by_month(
     expenses: list[ExpenseEntry],
 ) -> tuple[list[str], list[float]]:
