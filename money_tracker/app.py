@@ -1759,6 +1759,27 @@ class GraphWindow(QWidget):
         self.graph_type.setStyleSheet("font-size: 18px;")
         self.graph_type.addItems(self.GRAPH_TYPES)
 
+        # The first and last month of the bars. The dropdowns list the same
+        # months in self.month_keys (filled by update_month_choices()).
+        self.month_keys: list[graph_data.Month] = []
+        self.start_month = QComboBox(self)
+        self.end_month = QComboBox(self)
+        for combo in (self.start_month, self.end_month):
+            combo.setStyleSheet("font-size: 18px;")
+        label_start = QLabel("Start: ", self)
+        label_end = QLabel("End: ", self)
+        for label in (label_start, label_end):
+            label.setStyleSheet("font-size: 18px;")  # Before measuring them.
+        label_width = max(label_start.sizeHint().width(), label_end.sizeHint().width())
+        months_row = QHBoxLayout()
+        for label, combo in ((label_start, self.start_month), (label_end, self.end_month)):
+            label.setFixedWidth(label_width)  # Both pairs get the same size.
+            pair = QHBoxLayout()
+            pair.addWidget(label)
+            pair.addWidget(combo, stretch=1)
+            months_row.addLayout(pair, stretch=1)  # Equal share for each pair.
+        self.update_month_choices()
+
         self.figure = Figure(layout="constrained")
         self.canvas = FigureCanvas(self.figure)
 
@@ -1773,13 +1794,44 @@ class GraphWindow(QWidget):
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.graph_type)
+        layout.addLayout(months_row)
         layout.addLayout(chart_row, stretch=1)
 
         self.graph_type.currentTextChanged.connect(self.draw)
+        self.start_month.currentIndexChanged.connect(self.draw)
+        self.end_month.currentIndexChanged.connect(self.draw)
         self.draw()
+
+    def update_month_choices(self):
+        """Fill both month dropdowns from the current data, keeping each choice
+        if it is still there. Without one, the range is January to December of
+        this year. Signals are blocked: the caller redraws."""
+        this_year = datetime.date.today().year
+        dates = [entry.date for entry in expense_list + income_list]
+        keys = graph_data.month_choices(dates, this_year)
+        for combo, default in (
+            (self.start_month, (this_year, 1)),
+            (self.end_month, (this_year, 12)),
+        ):
+            chosen = self.month_keys[combo.currentIndex()] if combo.currentIndex() >= 0 else None
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItems([graph_data.month_label(key) for key in keys])
+            combo.setCurrentIndex(keys.index(chosen if chosen in keys else default))
+            combo.blockSignals(False)
+        # Only now: both dropdowns above looked their choice up in the old list.
+        self.month_keys = keys
+
+    def month_range(self) -> tuple[graph_data.Month, graph_data.Month]:
+        """The (start, end) months picked in the dropdowns."""
+        return (
+            self.month_keys[self.start_month.currentIndex()],
+            self.month_keys[self.end_month.currentIndex()],
+        )
 
     def refresh(self):
         """Redraw from the current data (called when the page is shown)."""
+        self.update_month_choices()
         # Rebuild the selector from the current categories, keeping the selection.
         node = self.category_tree.current_node()
         selected = node.name if node is not None else None
@@ -1800,7 +1852,11 @@ class GraphWindow(QWidget):
             "Regular expense by month": self.draw_regular_expense_by_month,
             "Category by month": self.draw_category_by_month,
         }
-        drawers[self.graph_type.currentText()](ax)
+        start, end = self.month_range()
+        if start > end:
+            self.draw_no_data(ax, "The start month is after the end month")
+        else:
+            drawers[self.graph_type.currentText()](ax, start, end)
         ax.yaxis.set_major_formatter(FuncFormatter(self.format_dollars))
         # Horizontal grid lines behind the bars to make amounts easier to read.
         ax.set_axisbelow(True)
@@ -1823,10 +1879,16 @@ class GraphWindow(QWidget):
         ax.set_xticks([])
         ax.set_yticks([])
 
-    def draw_expense_by_month(self, ax):
-        months, regular, not_regular = graph_data.expense_by_month(expense_list)
-        if not months:
-            self.draw_no_data(ax)
+    @staticmethod
+    def period_text(start, end):
+        return f"from {graph_data.month_label(start)} to {graph_data.month_label(end)}"
+
+    def draw_expense_by_month(self, ax, start, end):
+        months, regular, not_regular = graph_data.expense_by_month(
+            expense_list, start, end
+        )
+        if not any(regular) and not any(not_regular):
+            self.draw_no_data(ax, f"No expenses {self.period_text(start, end)}")
             return
 
         x = list(range(len(months)))
@@ -1838,39 +1900,38 @@ class GraphWindow(QWidget):
         ax.set_ylabel("Total expense")
         ax.legend()
 
-    def draw_category_by_month(self, ax):
+    def draw_category_by_month(self, ax, start, end):
         node = self.category_tree.current_node()
         if node is None:
             self.draw_no_data(ax)
             return
         # The category and everything below it; the top category means all expenses.
         names = None if node.parent is None else {n.name for n in PreOrderIter(node)}
-        months, totals = graph_data.category_by_month(expense_list, names)
-        if not months:
-            self.draw_no_data(ax)
-            return
+        months, totals = graph_data.category_by_month(expense_list, names, start, end)
         if not any(totals):
-            self.draw_no_data(ax, f"No expenses in {node.name}")
+            self.draw_no_data(
+                ax, f"No expenses in {node.name} {self.period_text(start, end)}"
+            )
             return
 
         ax.bar(range(len(months)), totals, color=qcolor_or_default(node.color).name())
         self.set_month_ticks(ax, months)
         ax.set_ylabel(f"Expense in {node.name}")
 
-    def draw_regular_expense_by_month(self, ax):
-        months, regular = graph_data.regular_expense_by_month(expense_list)
-        if not months:
-            self.draw_no_data(ax)
+    def draw_regular_expense_by_month(self, ax, start, end):
+        months, regular = graph_data.regular_expense_by_month(expense_list, start, end)
+        if not any(regular):
+            self.draw_no_data(ax, f"No regular expenses {self.period_text(start, end)}")
             return
 
         ax.bar(range(len(months)), regular, color=styles.CHART_REGULAR)
         self.set_month_ticks(ax, months)
         ax.set_ylabel("Total regular expense")
 
-    def draw_net_by_month(self, ax):
-        months, net = graph_data.net_by_month(income_list, expense_list)
-        if not months:
-            self.draw_no_data(ax)
+    def draw_net_by_month(self, ax, start, end):
+        months, net = graph_data.net_by_month(income_list, expense_list, start, end)
+        if not any(net):
+            self.draw_no_data(ax, f"No income or expenses {self.period_text(start, end)}")
             return
 
         x = list(range(len(months)))

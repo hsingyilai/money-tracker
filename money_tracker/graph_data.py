@@ -1,20 +1,28 @@
-"""Monthly totals for the Graph page. No Qt in here so it is easy to test."""
+"""Monthly totals for the Graph page. No Qt in here so it is easy to test.
+
+A month is a (year, month) tuple. Every function takes an optional `start` and
+`end` month: the graph then covers exactly the months from start to end (months
+with no entries are empty bars), and entries outside that range are left out.
+Without them it covers the first to the last month that has an entry.
+"""
 import datetime
 from collections import defaultdict
 
 from .models import ExpenseEntry, IncomeEntry
 
+Month = tuple[int, int]
 
-def _month_key(date_str: str) -> tuple[int, int]:
+
+def _month_key(date_str: str) -> Month:
     date = datetime.date.fromisoformat(date_str)
     return date.year, date.month
 
 
-def _label(key: tuple[int, int]) -> str:
+def month_label(key: Month) -> str:
     return f"{key[0]}-{key[1]:02d}"
 
 
-def _month_span(keys) -> list[tuple[int, int]]:
+def _month_span(keys) -> list[Month]:
     """Every month from the earliest to the latest key, so months with no
     entries still show up as empty bars instead of being skipped."""
     keys = list(keys)
@@ -31,8 +39,30 @@ def _month_span(keys) -> list[tuple[int, int]]:
     return months
 
 
+def _months(keys, start: Month | None, end: Month | None) -> list[Month]:
+    """The months to graph: start to end, where a missing one defaults to the
+    earliest / latest of `keys`. Empty if there is nothing to span, or if start
+    is after end."""
+    keys = list(keys)
+    if start is None and keys:
+        start = min(keys)
+    if end is None and keys:
+        end = max(keys)
+    if start is None or end is None or start > end:
+        return []
+    return _month_span([start, end])
+
+
+def month_choices(dates, year: int) -> list[Month]:
+    """The months a graph can start or end at: every month from the earliest
+    date to the latest, always including January to December of `year`."""
+    return _month_span([*map(_month_key, dates), (year, 1), (year, 12)])
+
+
 def expense_by_month(
     expenses: list[ExpenseEntry],
+    start: Month | None = None,
+    end: Month | None = None,
 ) -> tuple[list[str], list[float], list[float]]:
     """Return (month labels, regular totals, not-regular totals).
 
@@ -48,22 +78,26 @@ def expense_by_month(
         else:
             not_regular[key] += entry.cost
 
-    months = _month_span([*regular, *not_regular])
+    months = _months([*regular, *not_regular], start, end)
     return (
-        [_label(key) for key in months],
+        [month_label(key) for key in months],
         [round(regular.get(key, 0.0), 2) for key in months],
         [round(not_regular.get(key, 0.0), 2) for key in months],
     )
 
 
 def category_by_month(
-    expenses: list[ExpenseEntry], category_names: set[str] | None
+    expenses: list[ExpenseEntry],
+    category_names: set[str] | None,
+    start: Month | None = None,
+    end: Month | None = None,
 ) -> tuple[list[str], list[float]]:
     """Return (month labels, total spent in `category_names` each month).
 
     `category_names` is the selected category and everything below it; None
-    means every expense. The months span all expenses (not only this category's),
-    so the axis stays the same whichever category is picked.
+    means every expense. Without start and end the months span all expenses
+    (not only this category's), so the axis stays the same whichever category
+    is picked.
     """
     totals = defaultdict(float)
     keys = []
@@ -73,27 +107,32 @@ def category_by_month(
         if category_names is None or entry.category in category_names:
             totals[key] += entry.cost
 
-    months = _month_span(keys)
+    months = _months(keys, start, end)
     return (
-        [_label(key) for key in months],
+        [month_label(key) for key in months],
         [round(totals.get(key, 0.0), 2) for key in months],
     )
 
 
 def regular_expense_by_month(
     expenses: list[ExpenseEntry],
+    start: Month | None = None,
+    end: Month | None = None,
 ) -> tuple[list[str], list[float]]:
     """Return (month labels, regular totals), counting only entries whose
-    regular field is exactly "Regular". The months span from the first to
-    the last regular expense."""
+    regular field is exactly "Regular". Without start and end the months span
+    from the first to the last regular expense."""
     months, regular, _ = expense_by_month(
-        [entry for entry in expenses if entry.regular == "Regular"]
+        [entry for entry in expenses if entry.regular == "Regular"], start, end
     )
     return months, regular
 
 
 def net_by_month(
-    incomes: list[IncomeEntry], expenses: list[ExpenseEntry]
+    incomes: list[IncomeEntry],
+    expenses: list[ExpenseEntry],
+    start: Month | None = None,
+    end: Month | None = None,
 ) -> tuple[list[str], list[float]]:
     """Return (month labels, income minus expense for each month)."""
     income_total = defaultdict(float)
@@ -103,9 +142,9 @@ def net_by_month(
     for entry in expenses:
         expense_total[_month_key(entry.date)] += entry.cost
 
-    months = _month_span([*income_total, *expense_total])
+    months = _months([*income_total, *expense_total], start, end)
     return (
-        [_label(key) for key in months],
+        [month_label(key) for key in months],
         [
             round(income_total.get(key, 0.0) - expense_total.get(key, 0.0), 2)
             for key in months
