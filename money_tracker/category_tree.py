@@ -88,7 +88,8 @@ class CategoryTree(QTreeWidget):
     # -- editing ---------------------------------------------------------
     def add_child(self, parent_node: Node, name: str, **attrs) -> Node:
         """Add a child under ``parent_node`` and select it."""
-        attrs.setdefault("color", DEFAULT_CATEGORY_COLOR)
+        # A new category starts in its parent's colour.
+        attrs.setdefault("color", getattr(parent_node, "color", DEFAULT_CATEGORY_COLOR))
         new_node = Node(name, parent=parent_node, **attrs)
         new_node.index = len(self._items)
 
