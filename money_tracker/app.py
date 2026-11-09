@@ -687,6 +687,7 @@ class InputWindow(QWidget):
         # Shown beside Submit only while an entry is highlighted on the list.
         self.button_update = QPushButton("Update", self)
         self.button_update.setStyleSheet(styles.SUBMIT_BUTTON)
+        self.button_update.clicked.connect(self.update_entry)
         # Placed by update_submit_buttons() once the list exists (see initUI).
 
     def update_submit_buttons(self):
@@ -723,8 +724,27 @@ class InputWindow(QWidget):
         return False
 
     def submit_entry(self):
-        if not self.weight_note_is_valid():
+        if self.add_entry():
+            self.list.clearSelection()
+
+    def update_entry(self):
+        """Do what Submit does, then delete the entry that was selected.
+
+        The new entry is added (and saved) first, so a failure part-way can leave
+        a duplicate but never lose the old entry. If the entry is not accepted
+        (see weight_note_is_valid) the old one is left alone.
+        """
+        if self.index_selected is None:
             return
+        # The old entry stays highlighted while the new row is inserted.
+        if self.add_entry():
+            self.delete_entry()
+
+    def add_entry(self) -> bool:
+        """Add the entry typed in the input fields to the list, save, and blank the
+        fields for the next one. Returns False, changing nothing, if it is not valid."""
+        if not self.weight_note_is_valid():
+            return False
         list_add(self)
         autosave()
         self.amount.clear()
@@ -744,7 +764,7 @@ class InputWindow(QWidget):
             self.trip_selector.addItem(selected_trip)
             trip_list.append(selected_trip)
             trip_list.sort()
-        self.list.clearSelection()
+        return True
 
     def init_list(self):
         self.label_find = QLabel("Find:", self)
