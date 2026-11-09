@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QStyleFactory,
 )
-from PyQt6.QtCore import QDate, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QDate, QEvent, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QDoubleValidator, QPalette
 from anytree import Node, PreOrderIter, PostOrderIter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
@@ -796,6 +796,7 @@ class InputWindow(QWidget):
         # Delete is enabled exactly while an entry is highlighted.
         self.list.itemSelectionChanged.connect(self.update_delete_button)
         self.list.itemSelectionChanged.connect(self.update_submit_buttons)
+        self.init_scroll_buttons()
 
         self.button_new_entry = QPushButton("New Entry", self)
         self.button_new_entry.setStyleSheet(styles.SMALL_BUTTON)
@@ -804,6 +805,78 @@ class InputWindow(QWidget):
 
     def update_delete_button(self):
         self.button_delete.setEnabled(self.index_selected is not None)
+
+    # -- jump back to the selected entry --------------------------------
+    SCROLL_BUTTON_SIZE = 32
+    SCROLL_BUTTON_MARGIN = 8
+
+    def init_scroll_buttons(self):
+        """Two round arrows floating over the list: up (top right) while the
+        selected entry is scrolled out of view above, down (bottom right) while
+        it is below. Clicking one scrolls the list to the selected entry."""
+        # Children of the list itself, not of its viewport: anything inside the
+        # viewport is moved along when the list scrolls.
+        self.button_scroll_up = self.make_scroll_button(
+            "▲", "Scroll up to the selected entry", self.list
+        )
+        self.button_scroll_down = self.make_scroll_button(
+            "▼", "Scroll down to the selected entry", self.list
+        )
+        # The viewport changes size when a scroll bar appears or the list is resized.
+        self.list.viewport().installEventFilter(self)
+
+        self.list.itemSelectionChanged.connect(self.update_scroll_buttons)
+        self.list.verticalScrollBar().valueChanged.connect(self.update_scroll_buttons)
+        # The scroll range changes once the list has laid out rows that were just
+        # added, removed or hidden by the Find box.
+        self.list.verticalScrollBar().rangeChanged.connect(self.update_scroll_buttons)
+        self.place_scroll_buttons()
+        self.update_scroll_buttons()
+
+    def make_scroll_button(self, arrow, tip, parent):
+        button = QPushButton(arrow, parent)
+        button.setToolTip(tip)
+        button.setFixedSize(self.SCROLL_BUTTON_SIZE, self.SCROLL_BUTTON_SIZE)
+        button.setStyleSheet(styles.SCROLL_TO_SELECTION_BUTTON)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # Leave the list's focus alone.
+        button.clicked.connect(self.scroll_to_selected)
+        button.hide()
+        return button
+
+    def eventFilter(self, watched, event):
+        if watched is self.list.viewport() and event.type() == QEvent.Type.Resize:
+            self.place_scroll_buttons()
+            self.update_scroll_buttons()
+        return super().eventFilter(watched, event)
+
+    def place_scroll_buttons(self):
+        viewport = self.list.viewport().geometry()  # Inside the list's frame.
+        size, margin = self.SCROLL_BUTTON_SIZE, self.SCROLL_BUTTON_MARGIN
+        x = viewport.right() + 1 - size - margin
+        self.button_scroll_up.move(x, viewport.top() + margin)
+        self.button_scroll_down.move(x, viewport.bottom() + 1 - size - margin)
+
+    def selected_item(self):
+        items = self.list.selectedItems()
+        return items[0] if items else None
+
+    def update_scroll_buttons(self, *_):
+        """Show the arrow that points toward the selected entry, if it is
+        entirely out of view (an entry hidden by the Find box has no arrow)."""
+        above = below = False
+        item = self.selected_item()
+        if item is not None and not item.isHidden():
+            rect = self.list.visualItemRect(item)  # In viewport coordinates.
+            above = rect.bottom() < 0
+            below = rect.top() >= self.list.viewport().height()
+        self.button_scroll_up.setVisible(above)
+        self.button_scroll_down.setVisible(below)
+
+    def scroll_to_selected(self):
+        item = self.selected_item()
+        if item is not None:
+            self.list.scrollToItem(item, QAbstractItemView.ScrollHint.PositionAtCenter)
 
     def list_clicked(self, item):
         row = self.list.row(item)
@@ -926,6 +999,7 @@ class InputWindow(QWidget):
                 item = self.list.item(i)
                 # Hide items that don't match
                 item.setHidden(text not in item.text().lower())
+        self.update_scroll_buttons()
 
     def refresh(self):
         # Reload categories, then the entry list.

@@ -87,6 +87,24 @@ LIST_WIDGET = f"""
     }}
 """
 
+# The round up/down arrow that floats over the entry list while the selected
+# entry is scrolled out of view. Same green as the selected row.
+SCROLL_TO_SELECTION_BUTTON = f"""
+    QPushButton {{
+        font-size: 14px;
+        color: white;
+        background-color: {SELECTION_GREEN};
+        border: 2px solid #2b4d28;
+        border-radius: 16px;
+    }}
+    QPushButton:hover {{
+        background-color: #3f7a3a;
+    }}
+    QPushButton:pressed {{
+        background-color: #2b4d28;
+    }}
+"""
+
 # Make the calendar's selected day use the same green instead of the
 # default grey highlight. Applied directly to the calendar's inner item
 # view ("qt_calendar_calendarview"): a descendant selector on the
