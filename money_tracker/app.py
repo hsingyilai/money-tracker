@@ -400,6 +400,7 @@ class InputWindow(QWidget):
         self.init_select_trip()
         self.init_button_submit()
         self.init_list()
+        self.update_submit_buttons()
 
     def init_expense_income_switch(self):
         self.label_switch_expense = QLabel("Expense", self)
@@ -680,10 +681,28 @@ class InputWindow(QWidget):
 
     def init_button_submit(self):
         self.button_submit = QPushButton("Submit", self)
-        self.button_submit.setGeometry(self.switch_x, 535, 325, 50)
         self.button_submit.setStyleSheet(styles.SUBMIT_BUTTON)
-
         self.button_submit.clicked.connect(self.submit_entry)
+
+        # Shown beside Submit only while an entry is highlighted on the list.
+        self.button_update = QPushButton("Update", self)
+        self.button_update.setStyleSheet(styles.SUBMIT_BUTTON)
+        # Placed by update_submit_buttons() once the list exists (see initUI).
+
+    def update_submit_buttons(self):
+        """Submit fills the row alone; with an entry selected it shares the row
+        with Update (Submit on the left, Update on the right)."""
+        full_width, gap = 325, 5
+        if self.index_selected is None:
+            self.button_submit.setGeometry(self.switch_x, 535, full_width, 50)
+            self.button_update.setVisible(False)
+        else:
+            half = (full_width - gap) // 2
+            self.button_submit.setGeometry(self.switch_x, 535, half, 50)
+            self.button_update.setGeometry(
+                self.switch_x + half + gap, 535, full_width - half - gap, 50
+            )
+            self.button_update.setVisible(True)
 
     def weight_note_is_valid(self) -> bool:
         """If the selected expense category tracks a weight, check that the
@@ -756,6 +775,7 @@ class InputWindow(QWidget):
         self.button_delete.clicked.connect(self.delete_entry)
         # Delete is enabled exactly while an entry is highlighted.
         self.list.itemSelectionChanged.connect(self.update_delete_button)
+        self.list.itemSelectionChanged.connect(self.update_submit_buttons)
 
         self.button_new_entry = QPushButton("New Entry", self)
         self.button_new_entry.setStyleSheet(styles.SMALL_BUTTON)
