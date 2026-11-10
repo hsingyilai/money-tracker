@@ -1808,13 +1808,18 @@ class PredictionWindow(QWidget):
         self.prediction_type.setStyle(self._combo_style)
         self.prediction_type.setFixedHeight(34)
         self.prediction_type.setStyleSheet("font-size: 18px;")
-        self.prediction_type.addItem("Periodic expenses")
+        self.prediction_type.addItems(["Periodic expenses", "Categories"])
+        self.prediction_type.setCurrentIndex(0)  # Periodic expenses by default.
+        self.prediction_type.currentIndexChanged.connect(self.show_selected_view)
 
         self.list = QListWidget(self)
         self.list.setStyleSheet(styles.LIST_WIDGET)
+        # The expense categories, as on the Input page. It takes the list's place
+        # while "Categories" is selected.
+        self.category_tree = CategoryTree(expense_type, self)
 
-        # The dropdown and the list stack in the right third of the page; the
-        # left two thirds are left empty for now.
+        # The dropdown and the list (or the tree) stack in the right third of the
+        # page; the left two thirds are left empty for now.
         column = QVBoxLayout()
         # The 3px sides and 14px gap put the widgets where macOS drew them before
         # the dropdown got its own height.
@@ -1822,13 +1827,22 @@ class PredictionWindow(QWidget):
         column.setSpacing(14)
         column.addWidget(self.prediction_type)
         column.addWidget(self.list, stretch=1)
+        column.addWidget(self.category_tree, stretch=1)  # Only one of the two shows.
 
         self.page_layout = QHBoxLayout(self)
         self.page_layout.setSpacing(0)
         self.page_layout.addStretch(2)
         self.page_layout.addLayout(column, stretch=1)
         self.update_margins()
+        self.show_selected_view()
         self.refresh()
+
+    def show_selected_view(self, *_):
+        """Show what the dropdown selects, in the same place: the list of
+        periodic expenses or the category tree."""
+        showing_categories = self.prediction_type.currentText() == "Categories"
+        self.list.setVisible(not showing_categories)
+        self.category_tree.setVisible(showing_categories)
 
     def update_margins(self):
         # Both widgets were 28px down from the top and 10px + an eighth of the
@@ -1848,6 +1862,13 @@ class PredictionWindow(QWidget):
             entry for entry in expense_list if PERIODIC_REGEX.match(entry.regular)
         ]
         add_entry_items(self.list, periodic_expenses, expense_type, expense_to_Qstring)
+
+        # Rebuild the tree from the current categories, keeping the selection.
+        node = self.category_tree.current_node()
+        selected = node.name if node is not None else None
+        self.category_tree.set_root(expense_type)
+        if selected is not None and self.category_tree.has_name(selected):
+            self.category_tree.select_by_name(selected)
 
 
 class GraphWindow(QWidget):
