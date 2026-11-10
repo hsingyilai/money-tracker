@@ -152,30 +152,66 @@ def net_by_month(
     )
 
 
+def _monthly_average(
+    all_dates: list[str], counted: list[tuple[str, float]], current_month: Month
+) -> float:
+    """Total of the `counted` (date, amount) pairs per month, over every month
+    from the first of `all_dates` to the month before `current_month` (which is
+    not over yet, so it is left out). A month with nothing counted is a zero.
+    Returns 0.0 when there is no such month."""
+    if not all_dates:
+        return 0.0
+    year, month = current_month
+    last = (year, month - 1) if month > 1 else (year - 1, 12)
+    months = _months([_month_key(date) for date in all_dates], None, last)
+    if not months:
+        return 0.0
+    total = sum(
+        amount for date, amount in counted if months[0] <= _month_key(date) <= last
+    )
+    return total / len(months)
+
+
 def regular_monthly_average(
     expenses: list[ExpenseEntry],
     category_names: set[str] | None,
     current_month: Month,
 ) -> float:
     """Average regular spending per month in `category_names` (None means every
-    category), leaving out `current_month`, which is not over yet.
+    category), leaving out `current_month`.
 
-    It averages over every month from the first month with any expense to the
-    month before `current_month`, so a month without regular spending counts as
-    zero. Returns 0.0 when there is no such month.
+    It averages over every month from the first month with any expense, so a
+    month without regular spending counts as zero.
     """
-    if not expenses:
-        return 0.0
-    year, month = current_month
-    last = (year, month - 1) if month > 1 else (year - 1, 12)
-    months = _months([_month_key(entry.date) for entry in expenses], None, last)
-    if not months:
-        return 0.0
-    total = sum(
-        entry.cost
-        for entry in expenses
-        if entry.regular == "Regular"
-        and (category_names is None or entry.category in category_names)
-        and months[0] <= _month_key(entry.date) <= last
+    return _monthly_average(
+        [entry.date for entry in expenses],
+        [
+            (entry.date, entry.cost)
+            for entry in expenses
+            if entry.regular == "Regular"
+            and (category_names is None or entry.category in category_names)
+        ],
+        current_month,
     )
-    return total / len(months)
+
+
+def income_monthly_average(
+    incomes: list[IncomeEntry],
+    category_names: set[str] | None,
+    current_month: Month,
+) -> float:
+    """Average income per month in `category_names` (None means every category),
+    leaving out `current_month`.
+
+    It averages over every month from the first month with any income, so a
+    month without income counts as zero.
+    """
+    return _monthly_average(
+        [entry.date for entry in incomes],
+        [
+            (entry.date, entry.amount)
+            for entry in incomes
+            if category_names is None or entry.category in category_names
+        ],
+        current_month,
+    )

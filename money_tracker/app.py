@@ -1808,16 +1808,21 @@ class PredictionWindow(QWidget):
         self.prediction_type.setStyle(self._combo_style)
         self.prediction_type.setFixedHeight(self.ROW_HEIGHT)
         self.prediction_type.setStyleSheet("font-size: 18px;")
-        self.prediction_type.addItems(["Periodic expenses", self.CATEGORIES_VIEW])
+        self.prediction_type.addItems(
+            ["Periodic expenses", self.CATEGORIES_VIEW, self.INCOME_VIEW]
+        )
         self.prediction_type.setCurrentIndex(0)  # Periodic expenses by default.
         self.prediction_type.currentIndexChanged.connect(self.show_selected_view)
 
         self.list = QListWidget(self)
         self.list.setStyleSheet(styles.LIST_WIDGET)
-        # The expense categories, as on the Input page. It takes the list's place
-        # while "Expense categories" is selected.
+        # The expense and the income categories, as on the Input page. One of them
+        # takes the list's place while "Expense categories" or "Income categories"
+        # is selected.
         self.category_tree = CategoryTree(expense_type, self)
-        self.category_tree.currentItemChanged.connect(self.update_monthly_average)
+        self.income_tree = CategoryTree(income_type, self)
+        for tree in (self.category_tree, self.income_tree):
+            tree.currentItemChanged.connect(self.update_monthly_average)
         self.init_average_row()
 
         # The dropdown and the list (or the tree) stack in the right third of the
@@ -1829,7 +1834,8 @@ class PredictionWindow(QWidget):
         column.setSpacing(self.COLUMN_SPACING)
         column.addWidget(self.prediction_type)
         column.addWidget(self.list, stretch=1)
-        column.addWidget(self.category_tree, stretch=1)  # Only one of the two shows.
+        column.addWidget(self.category_tree, stretch=1)  # Only one of the three shows.
+        column.addWidget(self.income_tree, stretch=1)
         column.addWidget(self.average_row)
 
         self.page_layout = QHBoxLayout(self)
@@ -1840,7 +1846,8 @@ class PredictionWindow(QWidget):
         self.show_selected_view()
         self.refresh()
 
-    CATEGORIES_VIEW = "Expense categories"  # The dropdown item that shows the tree.
+    CATEGORIES_VIEW = "Expense categories"  # The dropdown items that show a tree.
+    INCOME_VIEW = "Income categories"
     ROW_HEIGHT = 34  # The dropdown and the row under the tree.
     COLUMN_SPACING = 14
 
@@ -1878,28 +1885,43 @@ class PredictionWindow(QWidget):
         for widget in (self.label_average, self.average_edit, self.button_overwrite):
             widget.setFixedHeight(self.ROW_HEIGHT)  # All three the same height.
 
+    def active_tree(self) -> CategoryTree | None:
+        """The category tree the dropdown shows, or None for the periodic list."""
+        return {
+            self.CATEGORIES_VIEW: self.category_tree,
+            self.INCOME_VIEW: self.income_tree,
+        }.get(self.prediction_type.currentText())
+
     def update_monthly_average(self, *_):
-        """Show the monthly average of the regular expenses in the selected
-        category (and the categories below it), leaving out the current month."""
-        node = self.category_tree.current_node()
+        """Show the monthly average of the selected category (and the categories
+        below it), leaving out the current month: the regular expenses with the
+        expense tree, the income with the income tree."""
+        tree = self.active_tree()
+        if tree is None:
+            return  # The row is hidden.
+        node = tree.current_node()
         if node is None:
             self.average_edit.clear()
             return
-        # The top category means every expense, as on the Graph page.
+        # The top category means everything, as on the Graph page.
         names = None if node.parent is None else {n.name for n in PreOrderIter(node)}
         today = datetime.date.today()
-        average = graph_data.regular_monthly_average(
-            expense_list, names, (today.year, today.month)
-        )
+        this_month = (today.year, today.month)
+        if tree is self.income_tree:
+            average = graph_data.income_monthly_average(income_list, names, this_month)
+        else:
+            average = graph_data.regular_monthly_average(expense_list, names, this_month)
         self.average_edit.setText(f"{average:.2f}")
 
     def show_selected_view(self, *_):
         """Show what the dropdown selects, in the same place: the list of
-        periodic expenses, or the category tree with its monthly average."""
-        showing_categories = self.prediction_type.currentText() == self.CATEGORIES_VIEW
-        self.list.setVisible(not showing_categories)
-        self.category_tree.setVisible(showing_categories)
-        self.average_row.setVisible(showing_categories)
+        periodic expenses, or a category tree with its monthly average."""
+        tree = self.active_tree()
+        self.list.setVisible(tree is None)
+        self.category_tree.setVisible(tree is self.category_tree)
+        self.income_tree.setVisible(tree is self.income_tree)
+        self.average_row.setVisible(tree is not None)
+        self.update_monthly_average()
 
     def update_margins(self):
         # Both widgets were 28px down from the top and 10px + an eighth of the
@@ -1925,12 +1947,13 @@ class PredictionWindow(QWidget):
         ]
         add_entry_items(self.list, periodic_expenses, expense_type, expense_to_Qstring)
 
-        # Rebuild the tree from the current categories, keeping the selection.
-        node = self.category_tree.current_node()
-        selected = node.name if node is not None else None
-        self.category_tree.set_root(expense_type)
-        if selected is not None and self.category_tree.has_name(selected):
-            self.category_tree.select_by_name(selected)
+        # Rebuild the trees from the current categories, keeping the selections.
+        for tree, root in ((self.category_tree, expense_type), (self.income_tree, income_type)):
+            node = tree.current_node()
+            selected = node.name if node is not None else None
+            tree.set_root(root)
+            if selected is not None and tree.has_name(selected):
+                tree.select_by_name(selected)
         self.update_monthly_average()  # The data may have changed too.
 
 
