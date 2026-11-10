@@ -1,4 +1,4 @@
-"""Monthly totals for the Graph page. No Qt in here so it is easy to test.
+"""Monthly totals for the Graph and Prediction pages. No Qt in here so it is easy to test.
 
 A month is a (year, month) tuple. Every function takes an optional `start` and
 `end` month: the graph then covers exactly the months from start to end (months
@@ -150,3 +150,32 @@ def net_by_month(
             for key in months
         ],
     )
+
+
+def regular_monthly_average(
+    expenses: list[ExpenseEntry],
+    category_names: set[str] | None,
+    current_month: Month,
+) -> float:
+    """Average regular spending per month in `category_names` (None means every
+    category), leaving out `current_month`, which is not over yet.
+
+    It averages over every month from the first month with any expense to the
+    month before `current_month`, so a month without regular spending counts as
+    zero. Returns 0.0 when there is no such month.
+    """
+    if not expenses:
+        return 0.0
+    year, month = current_month
+    last = (year, month - 1) if month > 1 else (year - 1, 12)
+    months = _months([_month_key(entry.date) for entry in expenses], None, last)
+    if not months:
+        return 0.0
+    total = sum(
+        entry.cost
+        for entry in expenses
+        if entry.regular == "Regular"
+        and (category_names is None or entry.category in category_names)
+        and months[0] <= _month_key(entry.date) <= last
+    )
+    return total / len(months)

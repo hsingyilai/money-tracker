@@ -1806,17 +1806,19 @@ class PredictionWindow(QWidget):
         # height it is given, so use the Fusion style, which fills the height.
         self._combo_style = QStyleFactory.create("Fusion")
         self.prediction_type.setStyle(self._combo_style)
-        self.prediction_type.setFixedHeight(34)
+        self.prediction_type.setFixedHeight(self.ROW_HEIGHT)
         self.prediction_type.setStyleSheet("font-size: 18px;")
-        self.prediction_type.addItems(["Periodic expenses", "Categories"])
+        self.prediction_type.addItems(["Periodic expenses", self.CATEGORIES_VIEW])
         self.prediction_type.setCurrentIndex(0)  # Periodic expenses by default.
         self.prediction_type.currentIndexChanged.connect(self.show_selected_view)
 
         self.list = QListWidget(self)
         self.list.setStyleSheet(styles.LIST_WIDGET)
         # The expense categories, as on the Input page. It takes the list's place
-        # while "Categories" is selected.
+        # while "Expense categories" is selected.
         self.category_tree = CategoryTree(expense_type, self)
+        self.category_tree.currentItemChanged.connect(self.update_monthly_average)
+        self.init_average_row()
 
         # The dropdown and the list (or the tree) stack in the right third of the
         # page; the left two thirds are left empty for now.
@@ -1824,10 +1826,11 @@ class PredictionWindow(QWidget):
         # The 3px sides and 14px gap put the widgets where macOS drew them before
         # the dropdown got its own height.
         column.setContentsMargins(3, 0, 3, 0)
-        column.setSpacing(14)
+        column.setSpacing(self.COLUMN_SPACING)
         column.addWidget(self.prediction_type)
         column.addWidget(self.list, stretch=1)
         column.addWidget(self.category_tree, stretch=1)  # Only one of the two shows.
+        column.addWidget(self.average_row)
 
         self.page_layout = QHBoxLayout(self)
         self.page_layout.setSpacing(0)
@@ -1837,12 +1840,66 @@ class PredictionWindow(QWidget):
         self.show_selected_view()
         self.refresh()
 
+    CATEGORIES_VIEW = "Expense categories"  # The dropdown item that shows the tree.
+    ROW_HEIGHT = 34  # The dropdown and the row under the tree.
+    COLUMN_SPACING = 14
+
+    def init_average_row(self):
+        """Under the tree: "Monthly average: $", the average regular expense per
+        month in the selected category, and an overwrite button. Only shown
+        with the tree."""
+        self.average_row = QWidget(self)
+        self.average_row.setFixedHeight(self.ROW_HEIGHT)
+        # Keep its space while hidden, so the list is as tall as the tree plus
+        # this row.
+        policy = self.average_row.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        self.average_row.setSizePolicy(policy)
+
+        self.label_average = QLabel("Monthly average: $", self.average_row)
+        self.label_average.setStyleSheet("font-size: 16px;")
+
+        self.average_edit = QLineEdit(self.average_row)
+        self.average_edit.setStyleSheet("font-size: 16px;")
+        validator = QDoubleValidator(0.00, 999999.99, 2, self)
+        validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+        self.average_edit.setValidator(validator)
+
+        self.button_overwrite = QPushButton("overwrite", self.average_row)
+        self.button_overwrite.setStyleSheet(styles.SMALL_BUTTON)
+        self.button_overwrite.setMinimumWidth(88)  # Room around the text.
+
+        row = QHBoxLayout(self.average_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        row.addWidget(self.label_average)
+        row.addWidget(self.average_edit, stretch=1)
+        row.addWidget(self.button_overwrite)
+        for widget in (self.label_average, self.average_edit, self.button_overwrite):
+            widget.setFixedHeight(self.ROW_HEIGHT)  # All three the same height.
+
+    def update_monthly_average(self, *_):
+        """Show the monthly average of the regular expenses in the selected
+        category (and the categories below it), leaving out the current month."""
+        node = self.category_tree.current_node()
+        if node is None:
+            self.average_edit.clear()
+            return
+        # The top category means every expense, as on the Graph page.
+        names = None if node.parent is None else {n.name for n in PreOrderIter(node)}
+        today = datetime.date.today()
+        average = graph_data.regular_monthly_average(
+            expense_list, names, (today.year, today.month)
+        )
+        self.average_edit.setText(f"{average:.2f}")
+
     def show_selected_view(self, *_):
         """Show what the dropdown selects, in the same place: the list of
-        periodic expenses or the category tree."""
-        showing_categories = self.prediction_type.currentText() == "Categories"
+        periodic expenses, or the category tree with its monthly average."""
+        showing_categories = self.prediction_type.currentText() == self.CATEGORIES_VIEW
         self.list.setVisible(not showing_categories)
         self.category_tree.setVisible(showing_categories)
+        self.average_row.setVisible(showing_categories)
 
     def update_margins(self):
         # Both widgets were 28px down from the top and 10px + an eighth of the
@@ -1850,7 +1907,12 @@ class PredictionWindow(QWidget):
         # the top of the page, which is as far as they can go without being cut
         # off. The sizes are unchanged, so the bottom margin grows by the same 28px.
         up = 28
-        self.page_layout.setContentsMargins(0, 28 - up, 0, 10 + self.height() // 8 + up)
+        # The row under the tree fits in the space that used to be below the list,
+        # so it takes its height (and a gap) off the bottom margin.
+        row = self.ROW_HEIGHT + self.COLUMN_SPACING
+        self.page_layout.setContentsMargins(
+            0, 28 - up, 0, 10 + self.height() // 8 + up - row
+        )
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1869,6 +1931,7 @@ class PredictionWindow(QWidget):
         self.category_tree.set_root(expense_type)
         if selected is not None and self.category_tree.has_name(selected):
             self.category_tree.select_by_name(selected)
+        self.update_monthly_average()  # The data may have changed too.
 
 
 class GraphWindow(QWidget):
