@@ -6,6 +6,7 @@ with no entries are empty bars), and entries outside that range are left out.
 Without them it covers the first to the last month that has an entry.
 """
 import datetime
+import re
 from collections import defaultdict
 
 from .models import ExpenseEntry, IncomeEntry
@@ -222,6 +223,55 @@ def _next_month(key: Month) -> Month:
     return (year, month + 1) if month < 12 else (year + 1, 1)
 
 
+def _month_number(key: Month) -> int:
+    """Months counted from year 0, so months can be subtracted and stepped."""
+    return key[0] * 12 + key[1] - 1
+
+
+_EVERY_MONTHS = re.compile(r"Every (\d+) months")
+
+
+def _period(entry: ExpenseEntry) -> int | None:
+    """The N of an "Every N months" expense, or None if it is not periodic."""
+    match = _EVERY_MONTHS.fullmatch(entry.regular)
+    return int(match.group(1)) if match and int(match.group(1)) >= 1 else None
+
+
+def periodic_expense_by_month(
+    expenses: list[ExpenseEntry], current_month: Month, months: int
+) -> dict[Month, float]:
+    """The periodic ("Every N months") expenses that fall in each of the `months`
+    months starting with `current_month`.
+
+    Every periodic entry is worked out on its own: it counts in its own month if
+    that is `current_month` or later, and is expected again every N months after
+    that. Repeats that fall before `current_month` are not counted. Entries are
+    never merged, so the same expense entered twice counts twice.
+    """
+    start = _month_number(current_month)
+    last = start + months - 1
+    totals: dict[Month, float] = defaultdict(float)
+
+    def add(month_number: int, cost: float) -> None:
+        if start <= month_number <= last:
+            year, month = divmod(month_number, 12)
+            totals[(year, month + 1)] += cost
+
+    for entry in expenses:
+        period = _period(entry)
+        if period is None:
+            continue
+        first = _month_number(_month_key(entry.date))
+        add(first, entry.cost)  # When it happened (or is dated to happen).
+        # The repeats first + N, first + 2N, ... starting with the first one that
+        # is not before the start.
+        j = max(1, -(-(start - first) // period))
+        while first + j * period <= last:
+            add(first + j * period, entry.cost)
+            j += 1
+    return dict(totals)
+
+
 def balance_prediction(
     incomes: list[IncomeEntry],
     expenses: list[ExpenseEntry],
@@ -236,8 +286,9 @@ def balance_prediction(
     (over all categories, as regular_monthly_average and income_monthly_average
     work them out). Only the current month is different: it keeps what it has
     already earned or spent if that is more than the average. Later months always
-    use the averages, whatever entries are dated in them. Only regular expenses
-    are used, so irregular and periodic ones are left out.
+    use the averages, whatever entries are dated in them. On top of the regular
+    expense, a month also spends the periodic expenses that fall in it (see
+    periodic_expense_by_month). Irregular expenses are left out.
     """
     average_income = income_monthly_average(incomes, None, current_month)
     average_expense = regular_monthly_average(expenses, None, current_month)
@@ -251,6 +302,8 @@ def balance_prediction(
         if entry.regular == "Regular" and _month_key(entry.date) == current_month
     )
 
+    periodic = periodic_expense_by_month(expenses, current_month, months)
+
     labels, balance = [], []
     change = 0.0
     key = current_month
@@ -259,6 +312,7 @@ def balance_prediction(
         if key == current_month:
             income = max(income, income_so_far)
             expense = max(expense, regular_so_far)
+        expense += periodic.get(key, 0.0)
         change += income - expense
         labels.append(month_label(key))
         balance.append(round(change, 2))
