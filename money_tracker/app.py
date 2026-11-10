@@ -1824,9 +1824,10 @@ class PredictionWindow(QWidget):
         for tree in (self.category_tree, self.income_tree):
             tree.currentItemChanged.connect(self.update_monthly_average)
         self.init_average_row()
+        self.init_prediction_plot()
 
         # The dropdown and the list (or the tree) stack in the right third of the
-        # page; the left two thirds are left empty for now.
+        # page; the prediction plot takes the left two thirds.
         column = QVBoxLayout()
         # The 3px sides and 14px gap put the widgets where macOS drew them before
         # the dropdown got its own height.
@@ -1840,7 +1841,7 @@ class PredictionWindow(QWidget):
 
         self.page_layout = QHBoxLayout(self)
         self.page_layout.setSpacing(0)
-        self.page_layout.addStretch(2)
+        self.page_layout.addLayout(self.prediction_column, stretch=2)
         self.page_layout.addLayout(column, stretch=1)
         self.update_margins()
         self.show_selected_view()
@@ -1850,6 +1851,57 @@ class PredictionWindow(QWidget):
     INCOME_VIEW = "Income categories"
     ROW_HEIGHT = 34  # The dropdown and the row under the tree.
     COLUMN_SPACING = 14
+
+    def init_prediction_plot(self):
+        """Top left: "Prediction length: [n] months"; under it, the predicted
+        change of the balance for that many months, starting this month."""
+        self.label_length = QLabel("Prediction length: ", self)
+        self.label_length.setStyleSheet("font-size: 16px;")
+        self.length_spin = QSpinBox(self)
+        self.length_spin.setRange(2, 1200)
+        self.length_spin.setValue(12)
+        self.length_spin.setStyleSheet("font-size: 16px;")
+        self.length_spin.setFixedWidth(90)
+        self.label_length_unit = QLabel("months", self)
+        self.label_length_unit.setStyleSheet("font-size: 16px;")
+        self.length_spin.valueChanged.connect(self.draw_prediction)
+
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(6)
+        for widget in (self.label_length, self.length_spin, self.label_length_unit):
+            widget.setFixedHeight(self.ROW_HEIGHT)  # Level with the dropdown.
+            top.addWidget(widget)
+        top.addStretch(1)
+
+        self.prediction_figure = Figure(layout="constrained")
+        self.prediction_canvas = FigureCanvas(self.prediction_figure)
+
+        self.prediction_column = QVBoxLayout()
+        # The right gap keeps the plot off the tree and list next to it.
+        self.prediction_column.setContentsMargins(3, 0, 16, 0)
+        self.prediction_column.setSpacing(self.COLUMN_SPACING)
+        self.prediction_column.addLayout(top)
+        self.prediction_column.addWidget(self.prediction_canvas, stretch=1)
+
+    def draw_prediction(self, *_):
+        """Plot how the balance is predicted to change, month by month."""
+        today = datetime.date.today()
+        months, balance = graph_data.balance_prediction(
+            income_list, expense_list, self.length_spin.value(), (today.year, today.month)
+        )
+        self.prediction_figure.clear()
+        ax = self.prediction_figure.add_subplot(111)
+        # Markers only while the points are far enough apart to tell them apart.
+        ax.plot(range(len(months)), balance, color=styles.CHART_REGULAR,
+                marker="o" if len(months) <= 120 else None, markersize=4)
+        ax.axhline(0, color="black", linewidth=0.8)
+        set_month_ticks(ax, months)
+        ax.set_ylabel(f"Balance change since the start of {months[0]}")
+        ax.yaxis.set_major_formatter(FuncFormatter(format_dollars))
+        ax.set_axisbelow(True)
+        ax.grid(axis="y", color="#d0d0d0", linewidth=0.8)
+        self.prediction_canvas.draw()
 
     def init_average_row(self):
         """Under the tree: "Monthly average: $", the average regular expense per
@@ -1955,6 +2007,18 @@ class PredictionWindow(QWidget):
             if selected is not None and tree.has_name(selected):
                 tree.select_by_name(selected)
         self.update_monthly_average()  # The data may have changed too.
+        self.draw_prediction()
+
+
+def format_dollars(value, _position=None):
+    return f"-${abs(value):,.0f}" if value < 0 else f"${value:,.0f}"
+
+
+def set_month_ticks(ax, months):
+    # Thin the labels out when there are many months so they stay readable.
+    step = max(1, len(months) // 24)
+    positions = list(range(0, len(months), step))
+    ax.set_xticks(positions, [months[i] for i in positions], rotation=45, ha="right")
 
 
 class GraphWindow(QWidget):
@@ -2070,21 +2134,11 @@ class GraphWindow(QWidget):
             self.draw_no_data(ax, "The start month is after the end month")
         else:
             drawers[self.graph_type.currentText()](ax, start, end)
-        ax.yaxis.set_major_formatter(FuncFormatter(self.format_dollars))
+        ax.yaxis.set_major_formatter(FuncFormatter(format_dollars))
         # Horizontal grid lines behind the bars to make amounts easier to read.
         ax.set_axisbelow(True)
         ax.grid(axis="y", color="#d0d0d0", linewidth=0.8)
         self.canvas.draw()
-
-    @staticmethod
-    def format_dollars(value, _position=None):
-        return f"-${abs(value):,.0f}" if value < 0 else f"${value:,.0f}"
-
-    def set_month_ticks(self, ax, months):
-        # Thin the labels out when there are many months so they stay readable.
-        step = max(1, len(months) // 24)
-        positions = list(range(0, len(months), step))
-        ax.set_xticks(positions, [months[i] for i in positions], rotation=45, ha="right")
 
     def draw_no_data(self, ax, message="No data to graph"):
         ax.text(0.5, 0.5, message, ha="center", va="center",
@@ -2109,7 +2163,7 @@ class GraphWindow(QWidget):
         ax.bar(x, regular, color=styles.CHART_REGULAR, label="Regular")
         ax.bar(x, not_regular, bottom=regular, color=styles.CHART_NOT_REGULAR,
                label="Not regular")
-        self.set_month_ticks(ax, months)
+        set_month_ticks(ax, months)
         ax.set_ylabel("Total expense")
         ax.legend()
 
@@ -2128,7 +2182,7 @@ class GraphWindow(QWidget):
             return
 
         ax.bar(range(len(months)), totals, color=qcolor_or_default(node.color).name())
-        self.set_month_ticks(ax, months)
+        set_month_ticks(ax, months)
         ax.set_ylabel(f"Expense in {node.name}")
 
     def draw_regular_expense_by_month(self, ax, start, end):
@@ -2138,7 +2192,7 @@ class GraphWindow(QWidget):
             return
 
         ax.bar(range(len(months)), regular, color=styles.CHART_REGULAR)
-        self.set_month_ticks(ax, months)
+        set_month_ticks(ax, months)
         ax.set_ylabel("Total regular expense")
 
     def draw_net_by_month(self, ax, start, end):
@@ -2154,7 +2208,7 @@ class GraphWindow(QWidget):
         ]
         ax.bar(x, net, color=colors)
         ax.axhline(0, color="black", linewidth=0.8)
-        self.set_month_ticks(ax, months)
+        set_month_ticks(ax, months)
         ax.set_ylabel("Income minus expense")
 
 

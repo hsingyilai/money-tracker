@@ -215,3 +215,52 @@ def income_monthly_average(
         ],
         current_month,
     )
+
+
+def _next_month(key: Month) -> Month:
+    year, month = key
+    return (year, month + 1) if month < 12 else (year + 1, 1)
+
+
+def balance_prediction(
+    incomes: list[IncomeEntry],
+    expenses: list[ExpenseEntry],
+    months: int,
+    current_month: Month,
+) -> tuple[list[str], list[float]]:
+    """Return (month labels, predicted balance change), one point for each of
+    `months` months starting with `current_month`. Each value is the change in
+    the balance since the start of `current_month`, up to the end of that month.
+
+    Every month earns the average income and spends the average regular expense
+    (over all categories, as regular_monthly_average and income_monthly_average
+    work them out). Only the current month is different: it keeps what it has
+    already earned or spent if that is more than the average. Later months always
+    use the averages, whatever entries are dated in them. Only regular expenses
+    are used, so irregular and periodic ones are left out.
+    """
+    average_income = income_monthly_average(incomes, None, current_month)
+    average_expense = regular_monthly_average(expenses, None, current_month)
+    # What the current month has so far (months after it are not looked at).
+    income_so_far = sum(
+        entry.amount for entry in incomes if _month_key(entry.date) == current_month
+    )
+    regular_so_far = sum(
+        entry.cost
+        for entry in expenses
+        if entry.regular == "Regular" and _month_key(entry.date) == current_month
+    )
+
+    labels, balance = [], []
+    change = 0.0
+    key = current_month
+    for _ in range(months):
+        income, expense = average_income, average_expense
+        if key == current_month:
+            income = max(income, income_so_far)
+            expense = max(expense, regular_so_far)
+        change += income - expense
+        labels.append(month_label(key))
+        balance.append(round(change, 2))
+        key = _next_month(key)
+    return labels, balance
