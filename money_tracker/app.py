@@ -173,7 +173,7 @@ def handle_exception(exc_type, exc_value, exc_traceback) -> None:
 
 
 # Main Window
-PAGES = ["Input", "Categories", "Summary", "Periodic Expenses", "Graph"]
+PAGES = ["Input", "Categories", "Summary", "Prediction", "Graph"]
 
 # Horizontal shift applied to the Input page so the widened window grows
 # to the left of the centred input fields.
@@ -216,7 +216,7 @@ class MainWindow(QWidget):
             "Input": InputWindow(),
             "Categories": CategoriesWindow(),
             "Summary": SummaryWindow(),
-            "Periodic Expenses": PeriodicWindow(),
+            "Prediction": PredictionWindow(),
             "Graph": GraphWindow(),
         }
         for widget in self._page_by_name.values():
@@ -241,7 +241,7 @@ class MainWindow(QWidget):
             page.reload_categories()
         elif name == "Summary":
             page.load_options(page.summary_type.currentText())
-        elif name == "Periodic Expenses":
+        elif name == "Prediction":
             page.refresh()
         elif name == "Graph":
             page.refresh()
@@ -1794,21 +1794,53 @@ class SummaryWindow(QWidget):
         self.canvas.draw()
 
 
-class PeriodicWindow(QWidget):
+class PredictionWindow(QWidget):
     def __init__(self):
         super().__init__()
 
         self.initUI()
 
     def initUI(self):
-        self.label_title = QLabel("Periodic Expenses", self)
-        self.label_title.setGeometry(40, 30, 400, 40)
-        self.label_title.setStyleSheet("font-size: 22px; font-weight: bold;")
+        self.prediction_type = QComboBox(self)
+        # macOS draws its own combo box at a fixed height (about 24px) whatever
+        # height it is given, so use the Fusion style, which fills the height.
+        self._combo_style = QStyleFactory.create("Fusion")
+        self.prediction_type.setStyle(self._combo_style)
+        self.prediction_type.setFixedHeight(34)
+        self.prediction_type.setStyleSheet("font-size: 18px;")
+        self.prediction_type.addItem("Periodic expenses")
 
         self.list = QListWidget(self)
-        self.list.setGeometry(40, 80, 600, 550)
         self.list.setStyleSheet(styles.LIST_WIDGET)
+
+        # The dropdown and the list stack in the right third of the page; the
+        # left two thirds are left empty for now.
+        column = QVBoxLayout()
+        # The 3px sides and 14px gap put the widgets where macOS drew them before
+        # the dropdown got its own height.
+        column.setContentsMargins(3, 0, 3, 0)
+        column.setSpacing(14)
+        column.addWidget(self.prediction_type)
+        column.addWidget(self.list, stretch=1)
+
+        self.page_layout = QHBoxLayout(self)
+        self.page_layout.setSpacing(0)
+        self.page_layout.addStretch(2)
+        self.page_layout.addLayout(column, stretch=1)
+        self.update_margins()
         self.refresh()
+
+    def update_margins(self):
+        # Both widgets were 28px down from the top and 10px + an eighth of the
+        # page's height up from the bottom. They are now 28px higher: flush with
+        # the top of the page, which is as far as they can go without being cut
+        # off. The sizes are unchanged, so the bottom margin grows by the same 28px.
+        up = 28
+        self.page_layout.setContentsMargins(0, 28 - up, 0, 10 + self.height() // 8 + up)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_margins()
 
     def refresh(self):
         self.list.clear()
