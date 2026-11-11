@@ -277,6 +277,8 @@ def balance_prediction(
     expenses: list[ExpenseEntry],
     months: int,
     current_month: Month,
+    average_income: float | None = None,
+    average_expense: float | None = None,
 ) -> tuple[list[str], list[float]]:
     """Return (month labels, predicted balance change), one point for each of
     `months` months starting with `current_month`. Each value is the change in
@@ -289,9 +291,14 @@ def balance_prediction(
     use the averages, whatever entries are dated in them. On top of the regular
     expense, a month also spends the periodic expenses that fall in it (see
     periodic_expense_by_month). Irregular expenses are left out.
+
+    `average_income` and `average_expense` stand in for the calculated averages
+    when they are given (the Prediction page passes the ones the user typed in).
     """
-    average_income = income_monthly_average(incomes, None, current_month)
-    average_expense = regular_monthly_average(expenses, None, current_month)
+    if average_income is None:
+        average_income = income_monthly_average(incomes, None, current_month)
+    if average_expense is None:
+        average_expense = regular_monthly_average(expenses, None, current_month)
     # What the current month has so far (months after it are not looked at).
     income_so_far = sum(
         entry.amount for entry in incomes if _month_key(entry.date) == current_month

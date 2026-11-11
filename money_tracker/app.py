@@ -1798,6 +1798,10 @@ class PredictionWindow(QWidget):
     def __init__(self):
         super().__init__()
 
+        # Monthly averages the user has overwritten, by category node. They live
+        # only here, in memory: never on the nodes, which are saved to the file,
+        # so they are gone when the app is closed.
+        self.average_overrides: dict[Node, float] = {}
         self.initUI()
 
     def initUI(self):
@@ -1887,8 +1891,12 @@ class PredictionWindow(QWidget):
     def draw_prediction(self, *_):
         """Plot how the balance is predicted to change, month by month."""
         today = datetime.date.today()
+        # The top categories hold the totals, with any overwritten averages
+        # (None where there are none: then the calculated average is used).
         months, balance = graph_data.balance_prediction(
-            income_list, expense_list, self.length_spin.value(), (today.year, today.month)
+            income_list, expense_list, self.length_spin.value(), (today.year, today.month),
+            average_income=self.average_overrides.get(income_type),
+            average_expense=self.average_overrides.get(expense_type),
         )
         self.prediction_figure.clear()
         ax = self.prediction_figure.add_subplot(111)
@@ -1927,6 +1935,7 @@ class PredictionWindow(QWidget):
         self.button_overwrite = QPushButton("overwrite", self.average_row)
         self.button_overwrite.setStyleSheet(styles.SMALL_BUTTON)
         self.button_overwrite.setMinimumWidth(88)  # Room around the text.
+        self.button_overwrite.clicked.connect(self.overwrite_average)
 
         row = QHBoxLayout(self.average_row)
         row.setContentsMargins(0, 0, 0, 0)
@@ -1944,6 +1953,26 @@ class PredictionWindow(QWidget):
             self.INCOME_VIEW: self.income_tree,
         }.get(self.prediction_type.currentText())
 
+    def calculated_average(self, node: Node, income: bool) -> float:
+        """The monthly average worked out from the entries (leaving out the
+        current month) for a category and the categories below it: the income
+        for an income category, the regular expenses for an expense one."""
+        # The top category means everything, as on the Graph page.
+        names = None if node.parent is None else {n.name for n in PreOrderIter(node)}
+        today = datetime.date.today()
+        this_month = (today.year, today.month)
+        if income:
+            return graph_data.income_monthly_average(income_list, names, this_month)
+        return graph_data.regular_monthly_average(expense_list, names, this_month)
+
+    def category_average(self, node: Node, income: bool) -> float:
+        """The monthly average to use for a category: the overwritten one if the
+        user has overwritten it (or one of the categories below it), otherwise the
+        calculated one."""
+        if node in self.average_overrides:
+            return self.average_overrides[node]
+        return self.calculated_average(node, income)
+
     def update_monthly_average(self, *_):
         """Show the monthly average of the selected category (and the categories
         below it), leaving out the current month: the regular expenses with the
@@ -1955,15 +1984,34 @@ class PredictionWindow(QWidget):
         if node is None:
             self.average_edit.clear()
             return
-        # The top category means everything, as on the Graph page.
-        names = None if node.parent is None else {n.name for n in PreOrderIter(node)}
-        today = datetime.date.today()
-        this_month = (today.year, today.month)
-        if tree is self.income_tree:
-            average = graph_data.income_monthly_average(income_list, names, this_month)
-        else:
-            average = graph_data.regular_monthly_average(expense_list, names, this_month)
+        average = self.category_average(node, tree is self.income_tree)
         self.average_edit.setText(f"{average:.2f}")
+
+    def overwrite_average(self):
+        """Use the number in the text box as the selected category's monthly
+        average. The categories above it (its parent, that one's parent, and so
+        on up to the top) change by the same amount, since they include it. The
+        categories below it stay as they are. Then the plot is redrawn. Nothing
+        is saved: this lasts until the app is closed."""
+        tree = self.active_tree()
+        node = tree.current_node() if tree is not None else None
+        if node is None:
+            return
+        try:
+            value = round(float(self.average_edit.text()), 2)
+        except ValueError:
+            self.update_monthly_average()  # Nothing usable typed: show the average again.
+            return
+        income = tree is self.income_tree
+        before = self.category_average(node, income)
+        if value != round(before, 2):
+            change = value - before
+            # Work every new value out before storing any of them.
+            above = {a: self.category_average(a, income) + change for a in node.ancestors}
+            self.average_overrides[node] = value
+            self.average_overrides.update(above)
+        self.update_monthly_average()  # Tidies the number, e.g. 12.5 -> 12.50.
+        self.draw_prediction()
 
     def show_selected_view(self, *_):
         """Show what the dropdown selects, in the same place: the list of
