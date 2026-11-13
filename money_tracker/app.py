@@ -1865,7 +1865,7 @@ class PredictionWindow(QWidget):
         self.length_spin.setRange(2, 1200)
         self.length_spin.setValue(12)
         self.length_spin.setStyleSheet("font-size: 16px;")
-        self.length_spin.setFixedWidth(90)
+        self.length_spin.setFixedWidth(130)  # Room for 4 digits beside the arrows.
         self.label_length_unit = QLabel("months", self)
         self.label_length_unit.setStyleSheet("font-size: 16px;")
         self.length_spin.valueChanged.connect(self.draw_prediction)
