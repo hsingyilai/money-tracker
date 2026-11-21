@@ -38,6 +38,7 @@ from pint import UnitRegistry
 
 from . import graph_data, persistence, styles
 from .category_tree import CategoryTree
+from .check_delegate import TopLeftCheckDelegate
 from .color_wheel import ColorWheel, qcolor_or_default
 from .models import ExpenseEntry, IncomeEntry
 from .formatting import (
@@ -1819,7 +1820,14 @@ class PredictionWindow(QWidget):
         self.prediction_type.currentIndexChanged.connect(self.show_selected_view)
 
         self.list = QListWidget(self)
-        self.list.setStyleSheet(styles.LIST_WIDGET)
+        # Each periodic expense has a check box in its top-left corner; the text
+        # is moved over to make room for it.
+        check_delegate = TopLeftCheckDelegate(self.list)
+        self.list.setItemDelegate(check_delegate)
+        self.list.setStyleSheet(
+            styles.LIST_WIDGET
+            + f"QListWidget::item {{ padding-left: {check_delegate.text_indent(self.list)}px; }}"
+        )
         # The expense and the income categories, as on the Input page. One of them
         # takes the list's place while "Expense categories" or "Income categories"
         # is selected.
@@ -2041,11 +2049,23 @@ class PredictionWindow(QWidget):
         self.update_margins()
 
     def refresh(self):
+        # The rows are rebuilt, so remember which entries have their box checked.
+        checked = {
+            id(item.data(Qt.ItemDataRole.UserRole))
+            for item in (self.list.item(i) for i in range(self.list.count()))
+            if item.checkState() == Qt.CheckState.Checked
+        }
         self.list.clear()
         periodic_expenses = [
             entry for entry in expense_list if PERIODIC_REGEX.match(entry.regular)
         ]
-        add_entry_items(self.list, periodic_expenses, expense_type, expense_to_Qstring)
+        items = entry_items(periodic_expenses, expense_type, expense_to_Qstring)
+        for item, entry in zip(items, reversed(periodic_expenses)):
+            item.setData(Qt.ItemDataRole.UserRole, entry)  # Which entry the row shows.
+            item.setCheckState(
+                Qt.CheckState.Checked if id(entry) in checked else Qt.CheckState.Unchecked
+            )
+            self.list.addItem(item)
 
         # Rebuild the trees from the current categories, keeping the selections.
         for tree, root in ((self.category_tree, expense_type), (self.income_tree, income_type)):
