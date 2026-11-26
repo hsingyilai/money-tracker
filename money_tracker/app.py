@@ -1836,6 +1836,11 @@ class PredictionWindow(QWidget):
         for tree in (self.category_tree, self.income_tree):
             tree.currentItemChanged.connect(self.update_monthly_average)
         self.init_average_row()
+        # Under the periodic expenses list, where the average row is under the
+        # trees. Not connected to anything yet.
+        self.button_merge = QPushButton("Merge", self)
+        self.button_merge.setStyleSheet(styles.SMALL_BUTTON)
+        self.button_merge.setFixedSize(88, self.ROW_HEIGHT)  # As the overwrite button.
         self.init_prediction_plot()
 
         # The dropdown and the list (or the tree) stack in the right third of the
@@ -1849,7 +1854,9 @@ class PredictionWindow(QWidget):
         column.addWidget(self.list, stretch=1)
         column.addWidget(self.category_tree, stretch=1)  # Only one of the three shows.
         column.addWidget(self.income_tree, stretch=1)
+        # One of these two shows, so the list and the trees are the same height.
         column.addWidget(self.average_row)
+        column.addWidget(self.button_merge, alignment=Qt.AlignmentFlag.AlignLeft)
 
         self.page_layout = QHBoxLayout(self)
         self.page_layout.setSpacing(0)
@@ -1861,7 +1868,7 @@ class PredictionWindow(QWidget):
 
     CATEGORIES_VIEW = "Expense categories"  # The dropdown items that show a tree.
     INCOME_VIEW = "Income categories"
-    ROW_HEIGHT = 34  # The dropdown and the row under the tree.
+    ROW_HEIGHT = 34  # The dropdown and the row under the list or tree.
     COLUMN_SPACING = 14
 
     def init_prediction_plot(self):
@@ -1925,11 +1932,6 @@ class PredictionWindow(QWidget):
         with the tree."""
         self.average_row = QWidget(self)
         self.average_row.setFixedHeight(self.ROW_HEIGHT)
-        # Keep its space while hidden, so the list is as tall as the tree plus
-        # this row.
-        policy = self.average_row.sizePolicy()
-        policy.setRetainSizeWhenHidden(True)
-        self.average_row.setSizePolicy(policy)
 
         self.label_average = QLabel("Monthly average: $", self.average_row)
         self.label_average.setStyleSheet("font-size: 16px;")
@@ -2029,6 +2031,7 @@ class PredictionWindow(QWidget):
         self.category_tree.setVisible(tree is self.category_tree)
         self.income_tree.setVisible(tree is self.income_tree)
         self.average_row.setVisible(tree is not None)
+        self.button_merge.setVisible(tree is None)
         self.update_monthly_average()
 
     def update_margins(self):
