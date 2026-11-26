@@ -1,7 +1,6 @@
 import copy
 import datetime
 import math
-import re
 import sys
 import traceback
 
@@ -40,7 +39,13 @@ from . import graph_data, persistence, styles
 from .category_tree import CategoryTree
 from .check_delegate import TopLeftCheckDelegate
 from .color_wheel import ColorWheel, qcolor_or_default
-from .models import ExpenseEntry, IncomeEntry
+from .models import (
+    ExpenseEntry,
+    IncomeEntry,
+    latest_periodic,
+    parse_periodic,
+    periodic_text,
+)
 from .formatting import (
     expense_to_Qstring,
     income_to_Qstring,
@@ -90,11 +95,6 @@ def add_entry_items(list_widget: QListWidget, entries, root: Node, to_strings) -
     for item in entry_items(entries, root, to_strings):
         list_widget.addItem(item)
 
-
-# Matches the `regular` values written by list_add() for "Every X months"
-# (X being any integer), and nothing else - not "Regular", "Irregular", or
-# "Regular but not monthly".
-PERIODIC_REGEX = re.compile(r"^Every \d+ months$")
 
 
 # Define a QDate object for today.
@@ -737,16 +737,19 @@ class InputWindow(QWidget):
         """
         if self.index_selected is None:
             return
+        old = None
+        if self.expense_mode:
+            old = expense_list[len(expense_list) - 1 - self.index_selected]
         # The old entry stays highlighted while the new row is inserted.
-        if self.add_entry():
+        if self.add_entry(replacing=old):
             self.delete_entry()
 
-    def add_entry(self) -> bool:
+    def add_entry(self, replacing: ExpenseEntry | None = None) -> bool:
         """Add the entry typed in the input fields to the list, save, and blank the
         fields for the next one. Returns False, changing nothing, if it is not valid."""
         if not self.weight_note_is_valid():
             return False
-        list_add(self)
+        list_add(self, replacing)
         autosave()
         self.amount.clear()
         # Clear the note text for the next entry: always in income mode, and in
@@ -1015,7 +1018,7 @@ class InputWindow(QWidget):
 
 
 # wrap list editing into a single function to prevent mistake
-def list_add(inputwindow: InputWindow):
+def list_add(inputwindow: InputWindow, replacing: ExpenseEntry | None = None):
     # Fix the formate of amount.
     text = inputwindow.amount.text()
     if not text:
@@ -1036,7 +1039,13 @@ def list_add(inputwindow: InputWindow):
         notes = inputwindow.expense_notes.values()
 
         if inputwindow.irregular.currentIndex() == -1:
-            regular = "Every " + str(inputwindow.spin_period.value()) + " months"
+            # A new entry has no group. An edit (Update) of a merged expense stays
+            # in its group, unless it is moved to another category.
+            group = None
+            if replacing is not None and replacing.category == category:
+                parts = parse_periodic(replacing.regular)
+                group = parts[1] if parts else None
+            regular = periodic_text(inputwindow.spin_period.value(), group)
         else:
             regular = inputwindow.irregular.currentText()
         trip = inputwindow.trip_selector.currentText()
@@ -1837,11 +1846,12 @@ class PredictionWindow(QWidget):
             tree.currentItemChanged.connect(self.update_monthly_average)
         self.init_average_row()
         # Under the periodic expenses list, where the average row is under the
-        # trees. Not connected to anything yet.
+        # trees.
         self.button_merge = QPushButton("Merge", self)
         self.button_merge.setStyleSheet(styles.SMALL_BUTTON)
         self.button_merge.setFixedSize(88, self.ROW_HEIGHT)  # As the overwrite button.
         self.list.itemChanged.connect(self.update_merge_button)  # A box was (un)checked.
+        self.button_merge.clicked.connect(self.merge_checked)
         self.init_prediction_plot()
 
         # The dropdown and the list (or the tree) stack in the right third of the
@@ -1974,6 +1984,40 @@ class PredictionWindow(QWidget):
             len(checked) >= 2 and len({entry.category for entry in checked}) == 1
         )
 
+    def merge_checked(self):
+        """Put the checked periodic expenses in one group, so that only the latest
+        of them is listed and predicted, then save and reload.
+
+        If some of them are in a group already, that group is kept (the lowest
+        number if there are several), and everything in the other checked groups
+        moves into it, including the older entries that are not listed. If none
+        is, the group gets the number after the highest one in use.
+        """
+        self.update_merge_button()
+        if not self.button_merge.isEnabled():
+            return
+        checked = self.checked_entries()
+        # Removed entries too: "Add back" must not bring back a stale group.
+        everything = [
+            (entry, parts)
+            for entry in expense_list + removed_expense
+            if (parts := parse_periodic(entry.regular)) is not None
+        ]
+        checked_groups = {
+            parts[1] for entry, parts in everything
+            if parts[1] is not None and any(entry is c for c in checked)
+        }
+        if checked_groups:
+            group = min(checked_groups)
+        else:
+            group = max((parts[1] or 0 for _, parts in everything), default=0) + 1
+        for entry, (months, old_group) in everything:
+            if old_group in checked_groups or any(entry is c for c in checked):
+                entry.regular = periodic_text(months, group)
+        autosave()
+        self.list.clear()  # Forget the checks: the merge has used them up.
+        self.refresh()
+
     def active_tree(self) -> CategoryTree | None:
         """The category tree the dropdown shows, or None for the periodic list."""
         return {
@@ -2073,9 +2117,7 @@ class PredictionWindow(QWidget):
         # The rows are rebuilt, so remember which entries have their box checked.
         checked = {id(entry) for entry in self.checked_entries()}
         self.list.clear()
-        periodic_expenses = [
-            entry for entry in expense_list if PERIODIC_REGEX.match(entry.regular)
-        ]
+        periodic_expenses = latest_periodic(expense_list)  # One per merged group.
         items = entry_items(periodic_expenses, expense_type, expense_to_Qstring)
         for item, entry in zip(items, reversed(periodic_expenses)):
             item.setData(Qt.ItemDataRole.UserRole, entry)  # Which entry the row shows.

@@ -6,10 +6,9 @@ with no entries are empty bars), and entries outside that range are left out.
 Without them it covers the first to the last month that has an entry.
 """
 import datetime
-import re
 from collections import defaultdict
 
-from .models import ExpenseEntry, IncomeEntry
+from .models import ExpenseEntry, IncomeEntry, latest_periodic, parse_periodic
 
 Month = tuple[int, int]
 
@@ -228,25 +227,16 @@ def _month_number(key: Month) -> int:
     return key[0] * 12 + key[1] - 1
 
 
-_EVERY_MONTHS = re.compile(r"Every (\d+) months")
-
-
-def _period(entry: ExpenseEntry) -> int | None:
-    """The N of an "Every N months" expense, or None if it is not periodic."""
-    match = _EVERY_MONTHS.fullmatch(entry.regular)
-    return int(match.group(1)) if match and int(match.group(1)) >= 1 else None
-
-
 def periodic_expense_by_month(
     expenses: list[ExpenseEntry], current_month: Month, months: int
 ) -> dict[Month, float]:
-    """The periodic ("Every N months") expenses that fall in each of the `months`
+    """The periodic ("Every x months") expenses that fall in each of the `months`
     months starting with `current_month`.
 
-    Every periodic entry is worked out on its own: it counts in its own month if
-    that is `current_month` or later, and is expected again every N months after
-    that. Repeats that fall before `current_month` are not counted. Entries are
-    never merged, so the same expense entered twice counts twice.
+    Only the entries the Prediction page lists are used (see latest_periodic):
+    those without a group, and the latest of each group. Each counts in its own
+    month if that is `current_month` or later, and is expected again every x
+    months after that. Repeats that fall before `current_month` are not counted.
     """
     start = _month_number(current_month)
     last = start + months - 1
@@ -257,9 +247,9 @@ def periodic_expense_by_month(
             year, month = divmod(month_number, 12)
             totals[(year, month + 1)] += cost
 
-    for entry in expenses:
-        period = _period(entry)
-        if period is None:
+    for entry in latest_periodic(expenses):
+        period, _group = parse_periodic(entry.regular)
+        if period < 1:
             continue
         first = _month_number(_month_key(entry.date))
         add(first, entry.cost)  # When it happened (or is dated to happen).
