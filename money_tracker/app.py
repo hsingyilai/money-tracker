@@ -1841,6 +1841,7 @@ class PredictionWindow(QWidget):
         self.button_merge = QPushButton("Merge", self)
         self.button_merge.setStyleSheet(styles.SMALL_BUTTON)
         self.button_merge.setFixedSize(88, self.ROW_HEIGHT)  # As the overwrite button.
+        self.list.itemChanged.connect(self.update_merge_button)  # A box was (un)checked.
         self.init_prediction_plot()
 
         # The dropdown and the list (or the tree) stack in the right third of the
@@ -1956,6 +1957,23 @@ class PredictionWindow(QWidget):
         for widget in (self.label_average, self.average_edit, self.button_overwrite):
             widget.setFixedHeight(self.ROW_HEIGHT)  # All three the same height.
 
+    def checked_entries(self) -> list[ExpenseEntry]:
+        """The periodic expenses whose check box is checked."""
+        items = (self.list.item(i) for i in range(self.list.count()))
+        return [
+            item.data(Qt.ItemDataRole.UserRole)
+            for item in items
+            if item.checkState() == Qt.CheckState.Checked
+        ]
+
+    def update_merge_button(self, *_):
+        """Merge is possible only for two or more checked expenses that are all
+        in the same category."""
+        checked = self.checked_entries()
+        self.button_merge.setEnabled(
+            len(checked) >= 2 and len({entry.category for entry in checked}) == 1
+        )
+
     def active_tree(self) -> CategoryTree | None:
         """The category tree the dropdown shows, or None for the periodic list."""
         return {
@@ -2053,11 +2071,7 @@ class PredictionWindow(QWidget):
 
     def refresh(self):
         # The rows are rebuilt, so remember which entries have their box checked.
-        checked = {
-            id(item.data(Qt.ItemDataRole.UserRole))
-            for item in (self.list.item(i) for i in range(self.list.count()))
-            if item.checkState() == Qt.CheckState.Checked
-        }
+        checked = {id(entry) for entry in self.checked_entries()}
         self.list.clear()
         periodic_expenses = [
             entry for entry in expense_list if PERIODIC_REGEX.match(entry.regular)
@@ -2069,6 +2083,7 @@ class PredictionWindow(QWidget):
                 Qt.CheckState.Checked if id(entry) in checked else Qt.CheckState.Unchecked
             )
             self.list.addItem(item)
+        self.update_merge_button()
 
         # Rebuild the trees from the current categories, keeping the selections.
         for tree, root in ((self.category_tree, expense_type), (self.income_tree, income_type)):
